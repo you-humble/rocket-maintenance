@@ -1,0 +1,6 @@
+type: string
+description: Status of the spacecraft build order.
+enum:
+  - PENDING_PAYMENT
+  - PAID
+  - CANCELLED

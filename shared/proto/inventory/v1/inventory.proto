@@ -1,0 +1,184 @@
+syntax = "proto3";
+
+package inventory.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1;inventorypbv1";
+
+// InventoryService provides read-only information operations for parts in the inventory.
+service InventoryService {
+  // GetPart returns detailed information about a part by its UUID.
+  //
+  // Behavior:
+  // - Looks up the part by UUID in the storage.
+  // - If the part is not found, returns a NotFound error.
+  rpc GetPart(GetPartRequest) returns (GetPartResponse);
+
+  // ListParts returns a list of parts that match the provided filter.
+  //
+  // Behavior:
+  // - If all filter fields are empty, all parts are returned.
+  // - Filtering logic:
+  //     - Logical OR within a single filter field
+  //       (e.g., name is "main" OR "main booster").
+  //     - Logical AND between different filter fields
+  //       (e.g., category = ENGINE AND manufacturer country = "Germany").
+  // - It is acceptable to implement filtering via several sequential passes, for example:
+  //     1. Filter by UUIDs,
+  //     2. Then by names,
+  //     3. Then by categories,
+  //     4. Then by manufacturer countries,
+  //     5. Then by tags.
+  rpc ListParts(ListPartsRequest) returns (ListPartsResponse);
+}
+
+// Part represents a single inventory item (e.g., a rocket component).
+message Part {
+  // Globally unique identifier of the part.
+  string uuid = 1;
+
+  // Human-readable part name.
+  string name = 2;
+
+  // Detailed description of the part.
+  string description = 3;
+
+  // Unit price of the part.
+  double price = 4;
+
+  // Quantity of this part currently available in stock.
+  int64 stock_quantity = 5;
+
+  // Category of the part.
+  Category category = 6;
+
+  // Physical dimensions and weight of the part.
+  Dimensions dimensions = 7;
+
+  // Manufacturer information for this part.
+  Manufacturer manufacturer = 8;
+
+  // Free-form tags used for quick search and classification.
+  repeated string tags = 9;
+
+  // Flexible key–value metadata associated with the part.
+  // Each entry can store a string, integer, double, or boolean value.
+  map<string, Value> metadata = 10;
+
+  // Timestamp when the part was created.
+  google.protobuf.Timestamp created_at = 11;
+
+  // Timestamp when the part was last updated.
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+// Value represents a flexible typed value used in the Part.metadata map.
+message Value {
+    // Exactly one of the following fields must be set.
+  oneof value {
+        // String value.
+    string string_value = 1;
+
+        // 64-bit integer value.
+    int64 int64_value = 2;
+
+        // Double-precision floating-point value.
+    double double_value = 3;
+
+        // Boolean value.
+    bool bool_value = 4;
+  }
+}
+
+// Dimensions describes the physical size and weight of a part.
+message Dimensions {
+  // Length in centimeters.
+  double length = 1;
+
+  // Width in centimeters.
+  double width = 2;
+
+  // Height in centimeters.
+  double height = 3;
+
+  // Weight in kilograms.
+  double weight = 4;
+}
+
+// Manufacturer contains information about the part manufacturer.
+message Manufacturer {
+  // Manufacturer name.
+  string name = 1;
+
+  // Country of origin of the manufacturer.
+  string country = 2;
+
+  // Official website of the manufacturer.
+  string website = 3;
+}
+
+// Category enumerates possible part categories.
+enum Category {
+  CATEGORY_UNKNOWN  = 0;
+  CATEGORY_ENGINE   = 1;
+  CATEGORY_FUEL     = 2;
+  CATEGORY_PORTHOLE = 3;
+  CATEGORY_WING     = 4;
+}
+
+// GetPartRequest contains parameters to retrieve a single part by UUID.
+message GetPartRequest {
+  // Unique identifier of the part to retrieve.
+  string uuid = 1;
+}
+
+// GetPartResponse returns detailed information about a single part.
+message GetPartResponse {
+  // Part information.
+  Part part = 1;
+}
+
+// ListPartsRequest contains a filter used to select parts.
+message ListPartsRequest {
+  // Filter applied to returned parts.
+  // All fields are optional. Empty filter means "no filtering".
+  PartsFilter filter = 1;
+}
+
+// ListPartsResponse contains a list of parts that matched the filter.
+message ListPartsResponse {
+  // List of parts found by the filter.
+  repeated Part parts = 1;
+}
+
+// PartsFilter describes filtering criteria for selecting parts.
+//
+// All repeated fields act as "inclusive filters":
+// - An empty list means "do not filter by this field".
+// - A non-empty list means "keep only records matching at least one of the values" in that field.
+//
+// Logical behavior:
+// - OR within a single repeated field (e.g., name is "main" OR "main booster").
+// - AND between different fields (e.g., category is ENGINE AND manufacturer country is "Germany").
+message PartsFilter {
+  // List of part UUIDs.
+  // Empty list — do not filter by UUID.
+  repeated string uuids = 1;
+
+  // List of part names.
+  // Empty list — do not filter by name.
+  repeated string names = 2;
+
+  // List of categories.
+  // Empty list — do not filter by category.
+  repeated Category categories = 3;
+
+  // List of manufacturer countries.
+  // Empty list — do not filter by country.
+  repeated string manufacturer_countries = 4;
+
+  // List of tags.
+  // Empty list — do not filter by tags.
+  repeated string tags = 5;
+}

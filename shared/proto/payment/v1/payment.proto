@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package payment.v1;
+
+option go_package = "github.com/you-humble/rocket-maintenance/shared/pkg/proto/payment/v1;paymentpbv1";
+
+// Payment service.
+// Processes a payment command and returns a `transaction_uuid`.
+// `transaction_uuid` is generated as UUID v4.
+// "Payment succeeded, transaction_uuid: <uuid>".
+// No state is persisted; the service is stateless.
+service PaymentService {
+    // PayOrder
+    // Processes a payment command and returns `transaction_uuid`.
+  rpc PayOrder(PayOrderRequest) returns (PayOrderResponse);
+}
+
+// Request to pay for an order.
+//
+// Fields:
+// - `order_uuid` — UUID of the order.
+// - `user_uuid` — UUID of the user who initiates the payment.
+// - `payment_method` — selected payment method.
+message PayOrderRequest {
+    // UUID of the order.
+  string order_uuid = 1;
+
+    // UUID of the user who initiates the payment.
+  string user_uuid = 2;
+
+    // Selected payment method.
+  PaymentMethod payment_method = 3;
+}
+
+// Response to a payment command.
+//
+// Fields:
+// - `transaction_uuid` — UUID of the payment transaction (UUID v4).
+message PayOrderResponse {
+    // UUID of the payment transaction (UUID v4), generated on successful payment.
+  string transaction_uuid = 1;
+}
+
+// Payment method.
+//
+// Values:
+// - PAYMENT_METHOD_UNKNOWN (0)        — unknown method.
+// - PAYMENT_METHOD_CARD (1)           — bank card.
+// - PAYMENT_METHOD_SBP (2)            — Faster Payments System.
+// - PAYMENT_METHOD_CREDIT_CARD (3)    — credit card.
+// - PAYMENT_METHOD_INVESTOR_MONEY (4) — investor's money (internal method).
+enum PaymentMethod {
+  PAYMENT_METHOD_UNKNOWN        = 0;
+  PAYMENT_METHOD_CARD           = 1;
+  PAYMENT_METHOD_SBP            = 2;
+  PAYMENT_METHOD_CREDIT_CARD    = 3;
+  PAYMENT_METHOD_INVESTOR_MONEY = 4;
+}

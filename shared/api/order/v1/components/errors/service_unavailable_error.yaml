@@ -1,0 +1,7 @@
+allOf:
+  - $ref: ./generic_error.yaml
+  - type: object
+    description: Error indicating that the service is currently unavailable.
+    example:
+      code: 503
+      message: "Service unavailable"

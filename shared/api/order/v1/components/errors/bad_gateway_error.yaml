@@ -1,0 +1,7 @@
+allOf:
+  - $ref: ./generic_error.yaml
+  - type: object
+    description: Error indicating that the service received an invalid response from an upstream service.
+    example:
+      code: 502
+      message: "Bad gateway: failed to call external service"

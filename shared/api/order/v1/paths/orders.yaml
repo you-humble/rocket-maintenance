@@ -1,0 +1,77 @@
+post:
+  tags:
+    - Orders
+  summary: Create an order
+  description: >
+    Creates a new order based on the provided user UUID and list of part UUIDs.
+    The service fetches parts via InventoryService.ListParts, verifies that all
+    parts exist, calculates the total price, generates order_uuid, and saves
+    the order with status PENDING_PAYMENT.
+  operationId: CreateOrder
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/create_order_request.yaml
+  responses:
+    "201":
+      description: Order successfully created
+      content:
+        application/json:
+          schema:
+            $ref: ../components/create_order_response.yaml
+    "400":
+      description: Bad request — invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/bad_request_error.yaml
+    "401":
+      description: Unauthorized — authentication required
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/unauthorized_error.yaml
+    "403":
+      description: Forbidden — the client is not allowed to create this order
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/forbidden_error.yaml
+    "404":
+      description: One or more parts not found in inventory
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/not_found_error.yaml
+    "422":
+      description: Validation error — request data failed validation rules
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/validation_error.yaml
+    "429":
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/rate_limit_error.yaml
+    "502":
+      description: Bad gateway — failed to call InventoryService
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/bad_gateway_error.yaml
+    "503":
+      description: Service unavailable — temporary backend issue
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/service_unavailable_error.yaml
+    "500":
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/internal_server_error.yaml

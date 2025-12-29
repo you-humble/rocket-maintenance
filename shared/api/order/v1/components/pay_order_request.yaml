@@ -1,0 +1,7 @@
+type: object
+description: Request body for paying a spacecraft build order.
+required:
+  - payment_method
+properties:
+  payment_method:
+    $ref: ../components/enums/payment_method.yaml

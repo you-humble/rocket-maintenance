@@ -1,0 +1,8 @@
+type: string
+description: Payment method used to pay for the spacecraft build order.
+enum:
+  - PAYMENT_METHOD_UNKNOWN
+  - PAYMENT_METHOD_CARD
+  - PAYMENT_METHOD_SBP
+  - PAYMENT_METHOD_CREDIT_CARD
+  - PAYMENT_METHOD_INVESTOR_MONEY

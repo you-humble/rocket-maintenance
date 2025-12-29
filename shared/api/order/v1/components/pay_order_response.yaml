@@ -1,0 +1,9 @@
+type: object
+description: Response returned after successfully paying a spacecraft build order.
+required:
+  - transaction_uuid
+properties:
+  transaction_uuid:
+    type: string
+    format: uuid
+    description: UUID of the payment transaction.

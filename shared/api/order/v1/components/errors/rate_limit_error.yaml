@@ -1,0 +1,7 @@
+allOf:
+  - $ref: ./generic_error.yaml
+  - type: object
+    description: Error indicating that the client has sent too many requests in a given amount of time.
+    example:
+      code: 429
+      message: "Too many requests"

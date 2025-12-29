@@ -1,0 +1,59 @@
+parameters:
+  - $ref: ../params/order_uuid.yaml
+
+post:
+  tags:
+    - Orders
+  summary: Cancel an order
+  description: >
+    Cancels an existing order.  
+    If the order is in PENDING_PAYMENT status, it is changed to CANCELLED.  
+    If the order is already PAID, a 409 Conflict error is returned and the
+    order remains unchanged.
+  operationId: CancelOrder
+  responses:
+    "204":
+      description: Order successfully cancelled, no content is returned
+    "400":
+      description: Bad request — invalid payment request
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/bad_request_error.yaml
+    "401":
+      description: Unauthorized — authentication required
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/unauthorized_error.yaml
+    "403":
+      description: Forbidden — the client is not allowed to cancel this order
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/forbidden_error.yaml
+    "404":
+      description: Order not found
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/not_found_error.yaml
+    "409":
+      description: >
+        Conflict — the order has already been paid and cannot be cancelled.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/conflict_error.yaml
+    "429":
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/rate_limit_error.yaml
+    "500":
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/internal_server_error.yaml
