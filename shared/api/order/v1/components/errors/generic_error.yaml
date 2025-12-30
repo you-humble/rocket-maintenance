@@ -1,0 +1,12 @@
+type: object
+description: Generic error response object for the Order Service.
+properties:
+  code:
+    type: integer
+    format: int32
+    description: HTTP-error code
+    example: 500
+  message:
+    type: string
+    description: Human-readable description of the error.
+additionalProperties: false

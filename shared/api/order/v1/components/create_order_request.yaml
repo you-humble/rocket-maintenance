@@ -1,0 +1,16 @@
+type: object
+description: Request body for creating a new spacecraft build order.
+required:
+  - user_uuid
+  - part_uuids
+properties:
+  user_uuid:
+    type: string
+    format: uuid
+    description: UUID of the user placing the spacecraft build order.
+  part_uuids:
+    type: array
+    description: List of UUIDs of spacecraft parts included in the order.
+    items:
+      type: string
+      format: uuid

@@ -1,0 +1,7 @@
+allOf:
+  - $ref: ./generic_error.yaml
+  - type: object
+    description: Error indicating a conflict with the current state of the resource (for example, order is already paid).
+    example:
+      code: 409
+      message: "Order already paid and cannot be cancelled"

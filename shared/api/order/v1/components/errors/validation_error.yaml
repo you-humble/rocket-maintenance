@@ -1,0 +1,16 @@
+allOf:
+  - $ref: ./generic_error.yaml
+  - type: object
+    description: Error indicating that the request failed validation.
+    properties:
+      details:
+        type: array
+        description: Detailed validation error descriptions
+        items:
+          type: string
+    example:
+      code: 422
+      message: "Validation failed"
+      details:
+        - "user_uuid must be a valid UUID"
+        - "part_uuids must not be empty"
