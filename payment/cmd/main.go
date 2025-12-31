@@ -7,7 +7,9 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path"
 	"syscall"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -51,6 +53,62 @@ func (s *PaymentServer) PayOrder(
 	}, nil
 }
 
+func InterceptorLogger() grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req any,
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (resp any, err error) {
+		method := path.Base(info.FullMethod)
+
+		start := time.Now()
+
+		resp, err = handler(ctx, req)
+
+		dur := time.Since(start)
+
+		if err != nil {
+			st, _ := status.FromError(err)
+			log.Printf(
+				"ERROR | finished gRPC method %s with code %s: %v (took: %v)\n",
+				method, st.Code(), err, dur,
+			)
+		} else {
+			log.Printf(
+				"INFO | finished gRPC method %s succesfully (took: %v)\n",
+				method, dur,
+			)
+		}
+
+		return resp, err
+	}
+}
+
+func InterceptorValidate() grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req any,
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (any, error) {
+		if req == nil {
+			return nil, errors.New("request is nil")
+		}
+
+		payOrdReq, ok := req.(*paymentpbv1.PayOrderRequest)
+		if !ok {
+			return nil, errors.New("wrong request type")
+		}
+
+		if err := validatePayOrderRequest(payOrdReq); err != nil {
+			return nil, err
+		}
+
+		return handler(ctx, req)
+	}
+}
+
 func validatePayOrderRequest(req *paymentpbv1.PayOrderRequest) error {
 	if req == nil {
 		return errors.New("request is nil")
@@ -82,7 +140,12 @@ func main() {
 		}
 	}()
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			InterceptorLogger(),
+			InterceptorValidate(),
+		),
+	)
 
 	paymentpbv1.RegisterPaymentServiceServer(s, NewPaymentServiceServer())
 

@@ -7,10 +7,12 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path"
 	"slices"
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -159,6 +161,38 @@ func (s *InventoryService) ListParts(
 	}, nil
 }
 
+func InterceptorLogger() grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req any,
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (resp any, err error) {
+		method := path.Base(info.FullMethod)
+
+		start := time.Now()
+
+		resp, err = handler(ctx, req)
+
+		dur := time.Since(start)
+
+		if err != nil {
+			st, _ := status.FromError(err)
+			log.Printf(
+				"ERROR | finished gRPC method %s with code %s: %v (took: %v)\n",
+				method, st.Code(), err, dur,
+			)
+		} else {
+			log.Printf(
+				"INFO | finished gRPC method %s succesfully (took: %v)\n",
+				method, dur,
+			)
+		}
+
+		return resp, err
+	}
+}
+
 func isEmptyFilter(f *inventorypbv1.PartsFilter) bool {
 	if f == nil {
 		return true
@@ -232,7 +266,9 @@ func Run(ctx context.Context, gRPCAddr string, invSvc inventorypbv1.InventorySer
 		}
 	}()
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(InterceptorLogger()),
+	)
 	inventorypbv1.RegisterInventoryServiceServer(s, invSvc)
 
 	reflection.Register(s)
