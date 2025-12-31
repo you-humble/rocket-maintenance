@@ -5,6 +5,7 @@ go 1.25.4
 replace github.com/you-humble/rocket-maintenance/shared => ../shared
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/you-humble/rocket-maintenance/shared v0.0.0-00010101000000-000000000000
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
