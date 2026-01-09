@@ -29,7 +29,7 @@ type Order struct {
 	// List of UUIDs of spacecraft parts included in the order.
 	PartIDs []uuid.UUID
 	// Total price calculated based on selected spacecraft parts.
-	TotalPrice float64
+	TotalPrice int64
 	// UUID of the payment transaction (present if the order is paid).
 	TransactionID *uuid.UUID
 	// Payment method used to pay for the order (present if the order is paid).
@@ -44,7 +44,7 @@ type CreateOrderParams struct {
 
 type CreateOrderResult struct {
 	ID         uuid.UUID
-	TotalPrice float64
+	TotalPrice int64
 }
 
 type PayOrderParams struct {

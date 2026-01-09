@@ -33,8 +33,8 @@ func TestServiceCreate(t *testing.T) {
 	partID1 := uuid.New()
 	partID2 := uuid.New()
 	orderID := uuid.New()
-	price1 := gofakeit.Price(10, 999)
-	price2 := gofakeit.Price(10, 999)
+	price1 := int64(gofakeit.Price(10, 999))
+	price2 := int64(gofakeit.Price(10, 999))
 
 	type testCase struct {
 		name   string

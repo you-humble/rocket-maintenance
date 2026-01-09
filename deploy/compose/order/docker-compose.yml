@@ -1,0 +1,43 @@
+services:
+  order:
+    container_name: order
+    build:
+      context: ../../../
+      dockerfile: order/cmd/order/Dockerfile
+    depends_on:
+      postgres-order:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - POSTGRES_DSN "postgres://order-service-user:order-service-password@postgres:5432/order-service?sslmode=disable"
+    networks:
+      - microservices-net
+
+  postgres-order:
+    image: postgres:17.0-alpine3.20
+    container_name: postgres-order
+    environment:
+      POSTGRES_DB: order-service
+      POSTGRES_USER: order-service-user 
+      POSTGRES_PASSWORD: order-service-password 
+    volumes:
+      - postgres_order_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U order-service-user -d order-service" ]
+      interval: 10s  
+      timeout: 5s    
+      retries: 5  
+    restart: unless-stopped
+    networks:
+      - microservices-net
+
+volumes:
+  postgres_order_data:
+
+networks:
+  microservices-net:
+    external: true
+
