@@ -1,0 +1,123 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	invclient "github.com/you-humble/rocket-maintenance/order/internal/client/grpc/inventory/v1"
+	pmtclient "github.com/you-humble/rocket-maintenance/order/internal/client/grpc/payment/v1"
+	"github.com/you-humble/rocket-maintenance/order/internal/repository/order"
+	"github.com/you-humble/rocket-maintenance/order/internal/service/order"
+	thttp "github.com/you-humble/rocket-maintenance/order/internal/transport/http/order/v1"
+	orderv1 "github.com/you-humble/rocket-maintenance/shared/pkg/openapi/order/v1"
+	inventorypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1"
+	paymentpbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/payment/v1"
+)
+
+const (
+	httpAddr          = "127.0.0.1:8080"
+	inventoryGRPCAddr = "127.0.0.1:50051"
+	paymentGRPCAddr   = "127.0.0.1:50052"
+	readHeaderTimeout = 5 * time.Second
+	shutdownTimeout   = 10 * time.Second
+)
+
+func main() {
+	// Inventory
+	invConn, err := grpc.NewClient(
+		inventoryGRPCAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		log.Printf("failed to connect to inventory service %s: %v\n", inventoryGRPCAddr, err)
+		return
+	}
+	defer func() {
+		if cerr := invConn.Close(); cerr != nil {
+			log.Printf("failed to close inventory service connect: %v", cerr)
+		}
+	}()
+
+	grpcInventoryClient := inventorypbv1.NewInventoryServiceClient(invConn)
+	inventoryClient := invclient.NewClient(grpcInventoryClient)
+
+	// Payment
+	payConn, err := grpc.NewClient(
+		paymentGRPCAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		log.Printf("failed to connect to payment service %s: %v\n", paymentGRPCAddr, err)
+		return
+	}
+	defer func() {
+		if cerr := payConn.Close(); cerr != nil {
+			log.Printf("failed to close payment service connect: %v", cerr)
+		}
+	}()
+
+	grpcPaymentClient := paymentpbv1.NewPaymentServiceClient(payConn)
+	paymentClient := pmtclient.NewClient(grpcPaymentClient)
+
+	repo := repository.NewOrderRepository()
+	service := service.NewOrderService(repo, inventoryClient, paymentClient)
+
+	handler := thttp.NewOrderHandler(service)
+
+	orderServer, err := orderv1.NewServer(handler)
+	if err != nil {
+		log.Printf("failed to create a new server: %v\n", err)
+		return
+	}
+
+	r := chi.NewRouter()
+
+	r.Use(
+		middleware.Recoverer,
+		middleware.Logger,
+	)
+
+	r.Mount("/", orderServer)
+
+	server := &http.Server{
+		Addr:              httpAddr,
+		Handler:           r,
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
+
+	go func() {
+		log.Printf("🚀 order server listening on %s", httpAddr)
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("❌ order server error: %v\n", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("🛑 Server shutdown...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("❌ Error during server shutdown: %v\n", err)
+		log.Println("❌😵‍💫 Server stopped")
+		return
+	}
+
+	log.Println("✅ Server stopped")
+}
