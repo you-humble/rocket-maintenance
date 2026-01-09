@@ -12,7 +12,7 @@ func PartFromModel(p *model.Part) *inventorypbv1.Part {
 		Uuid:          p.ID,
 		Name:          p.Name,
 		Description:   p.Description,
-		Price:         p.Price,
+		PriceCents:    p.PriceCents,
 		StockQuantity: p.StockQuantity,
 		Category:      categoriyFromModel(p.Category),
 		Dimensions:    dimensionsFromModel(p.Dimensions),

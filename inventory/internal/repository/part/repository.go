@@ -80,7 +80,7 @@ func bootstrap(ctx context.Context, repository *repository) error {
 			ID:            uuid.NewString(),
 			Name:          "HyperDrive Engine Mk1",
 			Description:   "Основной гипердрайв для малых космических кораблей.",
-			Price:         125000.50,
+			PriceCents:    12500050,
 			StockQuantity: 10,
 			Category:      model.CategoryEngine,
 			Dimensions: &model.Dimensions{
@@ -108,7 +108,7 @@ func bootstrap(ctx context.Context, repository *repository) error {
 			ID:            uuid.NewString(),
 			Name:          "Quantum Fuel Cell QF-200",
 			Description:   "Топливная ячейка для гипердрайвов серии QF.",
-			Price:         7800.0,
+			PriceCents:    780000,
 			StockQuantity: 120,
 			Category:      model.CategoryFuel,
 			Dimensions: &model.Dimensions{
@@ -135,7 +135,7 @@ func bootstrap(ctx context.Context, repository *repository) error {
 			ID:            uuid.NewString(),
 			Name:          "Panoramic Porthole PX-360",
 			Description:   "Панорамный иллюминатор с круговым обзором 360°.",
-			Price:         15200.0,
+			PriceCents:    1520000,
 			StockQuantity: 35,
 			Category:      model.CategoryPorthole,
 			Dimensions: &model.Dimensions{

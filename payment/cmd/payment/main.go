@@ -7,7 +7,7 @@ import (
 	"github.com/you-humble/rocket-maintenance/payment/internal/app"
 )
 
-const GRPCAddr = "127.0.0.1:50052"
+const GRPCAddr = "0.0.0.0:50052"
 
 func main() {
 	ctx := context.Background()

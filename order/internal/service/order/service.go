@@ -74,7 +74,7 @@ func (svc *service) Create(
 		return nil, fmt.Errorf("%s: %w", op, model.ErrPartNotFound)
 	}
 
-	var totalPrice float64
+	var totalPrice int64
 	endedParts := make([]string, 0, len(params.PartIDs))
 	for _, p := range parts {
 		if p.StockQuantity <= 0 {
@@ -83,7 +83,7 @@ func (svc *service) Create(
 			continue
 		}
 
-		totalPrice += p.Price
+		totalPrice += p.PriceCents
 	}
 
 	if len(endedParts) > 0 {

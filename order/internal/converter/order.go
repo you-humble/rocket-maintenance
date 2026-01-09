@@ -1,6 +1,8 @@
 package converter
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 
 	"github.com/you-humble/rocket-maintenance/order/internal/model"
@@ -52,7 +54,7 @@ func CreateOrderRequestToParams(req *orderv1.CreateOrderRequest) model.CreateOrd
 func CreateOrderResultToResponse(res *model.CreateOrderResult) orderv1.CreateOrderRes {
 	return &orderv1.CreateOrderResponse{
 		UUID:       res.ID,
-		TotalPrice: res.TotalPrice,
+		TotalPrice: formatCents(res.TotalPrice),
 	}
 }
 
@@ -78,7 +80,7 @@ func OrderToOAPI(m *model.Order) *orderv1.Order {
 		OrderUUID:       m.ID,
 		UserUUID:        m.UserID,
 		PartUuids:       append([]uuid.UUID(nil), m.PartIDs...),
-		TotalPrice:      m.TotalPrice,
+		TotalPrice:      formatCents(m.TotalPrice),
 		TransactionUUID: transactionIDToOptNilUUID(m.TransactionID),
 		PaymentMethod:   paymentMethodToOptNil(m.PaymentMethod),
 		Status:          orderStatusToOAPI(m.Status),
@@ -126,4 +128,13 @@ func orderStatusToOAPI(s model.OrderStatus) orderv1.OrderStatus {
 	default:
 		return orderv1.OrderStatusPENDINGPAYMENT
 	}
+}
+
+func formatCents(cents int64) string {
+	sign := ""
+	if cents < 0 {
+		sign = "-"
+		cents = -cents
+	}
+	return fmt.Sprintf("%s%d.%02d", sign, cents/100, cents%100)
 }

@@ -116,7 +116,7 @@ func TestServiceCreate(t *testing.T) {
 				d.inventory.
 					On("ListParts", mock.Anything, mock.Anything).
 					Return([]model.Part{
-						{ID: partID1.String(), Price: price1, StockQuantity: 1},
+						{ID: partID1.String(), PriceCents: price1, StockQuantity: 1},
 					}, nil).
 					Once()
 			},
@@ -139,8 +139,8 @@ func TestServiceCreate(t *testing.T) {
 				d.inventory.
 					On("ListParts", mock.Anything, mock.Anything).
 					Return([]model.Part{
-						{ID: partID1.String(), Price: price1, StockQuantity: 1},
-						{ID: partID2.String(), Price: price2, StockQuantity: 0},
+						{ID: partID1.String(), PriceCents: price1, StockQuantity: 1},
+						{ID: partID2.String(), PriceCents: price2, StockQuantity: 0},
 					}, nil).
 					Once()
 			},
@@ -163,8 +163,8 @@ func TestServiceCreate(t *testing.T) {
 				d.inventory.
 					On("ListParts", mock.Anything, mock.Anything).
 					Return([]model.Part{
-						{ID: partID1.String(), Price: price1, StockQuantity: 1},
-						{ID: partID2.String(), Price: price2, StockQuantity: 2},
+						{ID: partID1.String(), PriceCents: price1, StockQuantity: 1},
+						{ID: partID2.String(), PriceCents: price2, StockQuantity: 2},
 					}, nil).
 					Once()
 
@@ -197,8 +197,8 @@ func TestServiceCreate(t *testing.T) {
 				d.inventory.
 					On("ListParts", mock.Anything, mock.Anything).
 					Return([]model.Part{
-						{ID: partID1.String(), Price: price1, StockQuantity: 1},
-						{ID: partID2.String(), Price: price2, StockQuantity: 2},
+						{ID: partID1.String(), PriceCents: price1, StockQuantity: 1},
+						{ID: partID2.String(), PriceCents: price2, StockQuantity: 2},
 					}, nil).
 					Once()
 
@@ -219,7 +219,7 @@ func TestServiceCreate(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				assert.Equal(t, orderID, res.ID)
-				assert.Equal(t, float64(price1+price2), res.TotalPrice)
+				assert.Equal(t, price1+price2, res.TotalPrice)
 
 				d.repository.AssertExpectations(t)
 				d.inventory.AssertExpectations(t)
@@ -574,7 +574,7 @@ func TestService_OrderByID(t *testing.T) {
 						uuid.New(),
 						uuid.New(),
 					},
-					TotalPrice: gofakeit.Price(10, 999),
+					TotalPrice: int64(gofakeit.Price(10, 999)),
 					Status:     model.StatusPendingPayment,
 				}
 

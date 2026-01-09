@@ -27,7 +27,7 @@ func partToModel(p *inventorypbv1.Part) model.Part {
 		ID:            p.Uuid,
 		Name:          p.Name,
 		Description:   p.Description,
-		Price:         p.Price,
+		PriceCents:    p.PriceCents,
 		StockQuantity: p.StockQuantity,
 		Category:      model.Category(p.Category),
 		Dimensions:    dimensionsToModel(p.Dimensions),

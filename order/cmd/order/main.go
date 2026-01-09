@@ -17,8 +17,8 @@ import (
 
 	invclient "github.com/you-humble/rocket-maintenance/order/internal/client/grpc/inventory/v1"
 	pmtclient "github.com/you-humble/rocket-maintenance/order/internal/client/grpc/payment/v1"
-	"github.com/you-humble/rocket-maintenance/order/internal/repository/order"
-	"github.com/you-humble/rocket-maintenance/order/internal/service/order"
+	repository "github.com/you-humble/rocket-maintenance/order/internal/repository/order"
+	service "github.com/you-humble/rocket-maintenance/order/internal/service/order"
 	thttp "github.com/you-humble/rocket-maintenance/order/internal/transport/http/order/v1"
 	orderv1 "github.com/you-humble/rocket-maintenance/shared/pkg/openapi/order/v1"
 	inventorypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1"
@@ -26,9 +26,9 @@ import (
 )
 
 const (
-	httpAddr          = "127.0.0.1:8080"
-	inventoryGRPCAddr = "127.0.0.1:50051"
-	paymentGRPCAddr   = "127.0.0.1:50052"
+	httpAddr          = "0.0.0.0:8080"
+	inventoryGRPCAddr = "inventory:50051"
+	paymentGRPCAddr   = "payment:50052"
 	readHeaderTimeout = 5 * time.Second
 	shutdownTimeout   = 10 * time.Second
 )

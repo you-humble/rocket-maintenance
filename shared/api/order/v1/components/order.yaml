@@ -22,9 +22,10 @@ properties:
       type: string
       format: uuid
   total_price:
-    type: number
-    format: double
-    description: Total price calculated based on selected spacecraft parts.
+    type: string
+    description: Total price formatted with 2 fraction digits (e.g. "123.45")
+    pattern: '^-?\d+(\.\d{2})$'
+    example: "1990.00"
   transaction_uuid:
     type: string
     format: uuid

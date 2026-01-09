@@ -144,8 +144,8 @@ func (s *CreateOrderRequest) SetPartUuids(val []uuid.UUID) {
 type CreateOrderResponse struct {
 	// UUID of the newly created spacecraft build order.
 	UUID uuid.UUID `json:"uuid"`
-	// Total price of the spacecraft build order.
-	TotalPrice float64 `json:"total_price"`
+	// Total price formatted with 2 fraction digits (e.g. "123.45").
+	TotalPrice string `json:"total_price"`
 }
 
 // GetUUID returns the value of UUID.
@@ -154,7 +154,7 @@ func (s *CreateOrderResponse) GetUUID() uuid.UUID {
 }
 
 // GetTotalPrice returns the value of TotalPrice.
-func (s *CreateOrderResponse) GetTotalPrice() float64 {
+func (s *CreateOrderResponse) GetTotalPrice() string {
 	return s.TotalPrice
 }
 
@@ -164,7 +164,7 @@ func (s *CreateOrderResponse) SetUUID(val uuid.UUID) {
 }
 
 // SetTotalPrice sets the value of TotalPrice.
-func (s *CreateOrderResponse) SetTotalPrice(val float64) {
+func (s *CreateOrderResponse) SetTotalPrice(val string) {
 	s.TotalPrice = val
 }
 
@@ -499,8 +499,8 @@ type Order struct {
 	UserUUID uuid.UUID `json:"user_uuid"`
 	// List of UUIDs of spacecraft parts included in the order.
 	PartUuids []uuid.UUID `json:"part_uuids"`
-	// Total price calculated based on selected spacecraft parts.
-	TotalPrice float64 `json:"total_price"`
+	// Total price formatted with 2 fraction digits (e.g. "123.45").
+	TotalPrice string `json:"total_price"`
 	// UUID of the payment transaction (present if the order is paid).
 	TransactionUUID OptNilUUID `json:"transaction_uuid"`
 	// Payment method used to pay for the order (present if the order is paid).
@@ -524,7 +524,7 @@ func (s *Order) GetPartUuids() []uuid.UUID {
 }
 
 // GetTotalPrice returns the value of TotalPrice.
-func (s *Order) GetTotalPrice() float64 {
+func (s *Order) GetTotalPrice() string {
 	return s.TotalPrice
 }
 
@@ -559,7 +559,7 @@ func (s *Order) SetPartUuids(val []uuid.UUID) {
 }
 
 // SetTotalPrice sets the value of TotalPrice.
-func (s *Order) SetTotalPrice(val float64) {
+func (s *Order) SetTotalPrice(val string) {
 	s.TotalPrice = val
 }
 
