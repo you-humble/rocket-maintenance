@@ -36,7 +36,7 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 	}()
 
-	repo, err := repository.NewPartRepository()
+	repo, err := repository.NewPartRepository(ctx)
 	if err != nil {
 		return err
 	}

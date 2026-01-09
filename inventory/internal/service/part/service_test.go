@@ -17,8 +17,6 @@ import (
 func TestServicePart(t *testing.T) {
 	t.Parallel()
 
-	type arrangeFn func(r *mocks.MockPartRepository, uuid string) (*model.Part, error)
-
 	type deps struct {
 		repository *mocks.MockPartRepository
 	}

@@ -16,10 +16,10 @@ type repository struct {
 	data map[string]*model.Part
 }
 
-func NewPartRepository() (*repository, error) {
+func NewPartRepository(ctx context.Context) (*repository, error) {
 	repo := &repository{data: make(map[string]*model.Part)}
 
-	if err := bootstrap(context.Background(), repo); err != nil {
+	if err := bootstrap(ctx, repo); err != nil {
 		return nil, err
 	}
 

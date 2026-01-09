@@ -558,7 +558,9 @@ func TestService_OrderByID(t *testing.T) {
 		assert func(t *testing.T, got *model.Order, err error, d deps)
 	}
 
-	gofakeit.Seed(0)
+	if err := gofakeit.Seed(0); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
 
 	tests := []testCase{
 		{

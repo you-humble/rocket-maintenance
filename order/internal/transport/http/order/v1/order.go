@@ -36,7 +36,7 @@ func NewOrderHandler(service OrderService) *handler {
 func (h *handler) CreateOrder(ctx context.Context, req *orderv1.CreateOrderRequest) (orderv1.CreateOrderRes, error) {
 	res, err := h.svc.Create(ctx, converter.CreateOrderRequestToParams(req))
 	if err != nil {
-		return mapErrorToCreateOrderRes(err)
+		return mapErrorToCreateOrderRes(err), nil
 	}
 
 	return converter.CreateOrderResultToResponse(res), nil
@@ -53,7 +53,7 @@ func (h *handler) PayOrder(ctx context.Context, req *orderv1.PayOrderRequest, pa
 
 	res, err := h.svc.Pay(ctx, converter.PayOrderRequestToParams(ordID, req))
 	if err != nil {
-		return mapErrorToPayOrderRes(err)
+		return mapErrorToPayOrderRes(err), nil
 	}
 
 	return converter.PayOrderResultToResponse(res), nil
@@ -70,7 +70,7 @@ func (h *handler) GetOrderByUUID(ctx context.Context, params orderv1.GetOrderByU
 
 	ord, err := h.svc.OrderByID(ctx, ordID)
 	if err != nil {
-		return mapErrorToGetOrderRes(err)
+		return mapErrorToGetOrderRes(err), nil
 	}
 
 	return converter.OrderToOAPI(ord), nil
@@ -86,117 +86,115 @@ func (h *handler) CancelOrder(ctx context.Context, params orderv1.CancelOrderPar
 	}
 
 	if err := h.svc.Cancel(ctx, ordID); err != nil {
-		return mapErrorToCancelOrderRes(err)
+		return mapErrorToCancelOrderRes(err), nil
 	}
 
 	return &orderv1.CancelOrderNoContent{}, nil
 }
 
-// Error mapping
-
 //nolint:dupl
-func mapErrorToCreateOrderRes(err error) (orderv1.CreateOrderRes, error) {
+func mapErrorToCreateOrderRes(err error) orderv1.CreateOrderRes {
 	switch {
 	case errors.Is(err, model.ErrValidation):
 		return &orderv1.ValidationError{ // 400
 			Code:    orderv1.NewOptInt32(int32(http.StatusBadRequest)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	case errors.Is(err, model.ErrPartNotFound):
 		return &orderv1.NotFoundError{ // 404
 			Code:    orderv1.NewOptInt32(int32(http.StatusNotFound)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	case errors.Is(err, model.ErrPartsOutOfStock):
 		return &orderv1.ValidationError{ // 422
 			Code:    orderv1.NewOptInt32(int32(http.StatusUnprocessableEntity)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	case errors.Is(err, model.ErrBadGateway):
 		return &orderv1.BadGatewayError{ // 502
 			Code:    orderv1.NewOptInt32(int32(http.StatusBadGateway)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	case errors.Is(err, model.ErrServiceUnavailable):
 		return &orderv1.ServiceUnavailableError{ // 503
 			Code:    orderv1.NewOptInt32(int32(http.StatusServiceUnavailable)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	default:
 		return &orderv1.InternalServerError{ // 500
 			Code:    orderv1.NewOptInt32(int32(http.StatusInternalServerError)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	}
 }
 
 //nolint:dupl
-func mapErrorToPayOrderRes(err error) (orderv1.PayOrderRes, error) {
+func mapErrorToPayOrderRes(err error) orderv1.PayOrderRes {
 	switch {
 	case errors.Is(err, model.ErrValidation):
 		return &orderv1.ValidationError{ // 400
 			Code:    orderv1.NewOptInt32(int32(http.StatusBadRequest)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	case errors.Is(err, model.ErrOrderNotFound):
 		return &orderv1.NotFoundError{ // 404
 			Code:    orderv1.NewOptInt32(int32(http.StatusNotFound)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	case errors.Is(err, model.ErrOrderConflict):
 		return &orderv1.ConflictError{ // 409
 			Code:    orderv1.NewOptInt32(int32(http.StatusConflict)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	case errors.Is(err, model.ErrBadGateway):
 		return &orderv1.BadGatewayError{ // 502
 			Code:    orderv1.NewOptInt32(int32(http.StatusBadGateway)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	case errors.Is(err, model.ErrServiceUnavailable):
 		return &orderv1.ServiceUnavailableError{ // 503
 			Code:    orderv1.NewOptInt32(int32(http.StatusServiceUnavailable)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	default:
 		return &orderv1.InternalServerError{ // 500
 			Code:    orderv1.NewOptInt32(int32(http.StatusInternalServerError)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	}
 }
 
-func mapErrorToGetOrderRes(err error) (orderv1.GetOrderByUUIDRes, error) {
+func mapErrorToGetOrderRes(err error) orderv1.GetOrderByUUIDRes {
 	switch {
 	case errors.Is(err, model.ErrOrderNotFound):
 		return &orderv1.NotFoundError{ // 404
 			Code:    orderv1.NewOptInt32(int32(http.StatusNotFound)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	default:
 		return &orderv1.InternalServerError{ // 500
 			Code:    orderv1.NewOptInt32(int32(http.StatusInternalServerError)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	}
 }
 
-func mapErrorToCancelOrderRes(err error) (orderv1.CancelOrderRes, error) {
+func mapErrorToCancelOrderRes(err error) orderv1.CancelOrderRes {
 	switch {
 	case errors.Is(err, model.ErrOrderNotFound):
 		return &orderv1.NotFoundError{ // 404
 			Code:    orderv1.NewOptInt32(int32(http.StatusNotFound)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	case errors.Is(err, model.ErrOrderConflict):
 		return &orderv1.ConflictError{ // 409
 			Code:    orderv1.NewOptInt32(int32(http.StatusConflict)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	default:
 		return &orderv1.InternalServerError{ // 500
 			Code:    orderv1.NewOptInt32(int32(http.StatusInternalServerError)),
 			Message: orderv1.NewOptString(err.Error()),
-		}, nil
+		}
 	}
 }
