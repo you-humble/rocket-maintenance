@@ -88,7 +88,7 @@ type Part struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Detailed description of the part.
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	// Unit price of the part.
+	// Unit price of the part in cents.
 	PriceCents int64 `protobuf:"varint,4,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
 	// Quantity of this part currently available in stock.
 	StockQuantity int64 `protobuf:"varint,5,opt,name=stock_quantity,json=stockQuantity,proto3" json:"stock_quantity,omitempty"`
