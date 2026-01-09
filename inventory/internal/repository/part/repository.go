@@ -16,12 +16,14 @@ type repository struct {
 	data map[string]*model.Part
 }
 
-func NewPartRepository() *repository {
+func NewPartRepository() (*repository, error) {
 	repo := &repository{data: make(map[string]*model.Part)}
 
-	bootstrap(context.Background(), repo)
+	if err := bootstrap(context.Background(), repo); err != nil {
+		return nil, err
+	}
 
-	return repo
+	return repo, nil
 }
 
 func (s *repository) PartByID(_ context.Context, id string) (*model.Part, error) {
@@ -47,15 +49,6 @@ func (r *repository) List(_ context.Context) ([]*model.Part, error) {
 	return out, nil
 }
 
-func clonePart(p *model.Part) *model.Part {
-	cp := *p
-
-	if p.Manufacturer != nil {
-		cp.Manufacturer = lo.ToPtr(*p.Manufacturer)
-	}
-	return &cp
-}
-
 func (r *repository) add(_ context.Context, parts []*model.Part) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -67,6 +60,16 @@ func (r *repository) add(_ context.Context, parts []*model.Part) error {
 		r.data[p.ID] = clonePart(p)
 	}
 	return nil
+}
+
+func clonePart(p *model.Part) *model.Part {
+	cp := *p
+
+	if p.Manufacturer != nil {
+		m := *p.Manufacturer
+		cp.Manufacturer = &m
+	}
+	return &cp
 }
 
 func bootstrap(ctx context.Context, repository *repository) error {

@@ -304,14 +304,6 @@ tasks:
     cmds:
       - go run ./cmd/order/main.go
 
-  run:
-    desc: Запуск всех сервисов параллельно в одном терминале
-    cmds:
-      - cd inventory && go run ./cmd/main.go &
-      - cd payment && go run ./cmd/main.go &
-      - cd order && go run ./cmd/main.go &
-      - wait
-
   test-api:
     desc: "🧪 Запуск тестов для проверки API микросервисов"
     deps: [grpcurl:install]

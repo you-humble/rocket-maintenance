@@ -1,22 +1,26 @@
 package converter
 
 import (
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/you-humble/rocket-maintenance/inventory/internal/model"
 	inventorypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1"
 )
 
 func PartFromModel(p *model.Part) *inventorypbv1.Part {
 	out := &inventorypbv1.Part{
-		Uuid:     p.ID,
-		Name:     p.Name,
-		Category: categoriyFromModel(p.Category),
-		Tags:     append([]string(nil), p.Tags...),
-	}
-	if p.Manufacturer != nil {
-		out.Manufacturer = &inventorypbv1.Manufacturer{
-			Name:    p.Manufacturer.Name,
-			Country: p.Manufacturer.Country,
-		}
+		Uuid:          p.ID,
+		Name:          p.Name,
+		Description:   p.Description,
+		Price:         p.Price,
+		StockQuantity: p.StockQuantity,
+		Category:      categoriyFromModel(p.Category),
+		Dimensions:    dimensionsFromModel(p.Dimensions),
+		Manufacturer:  manufacturerFromModel(p.Manufacturer),
+		Tags:          append([]string(nil), p.Tags...),
+		Metadata:      metadataFromModel(p.Metadata),
+		CreatedAt:     timestamppb.New(*p.CreatedAt),
+		UpdatedAt:     timestamppb.New(*p.UpdatedAt),
 	}
 	return out
 }
@@ -75,4 +79,52 @@ func categoriyFromModel(c model.Category) inventorypbv1.Category {
 	default:
 		return inventorypbv1.Category_CATEGORY_UNKNOWN
 	}
+}
+
+func dimensionsFromModel(d *model.Dimensions) *inventorypbv1.Dimensions {
+	if d == nil {
+		return nil
+	}
+	return &inventorypbv1.Dimensions{
+		Length: d.Length,
+		Width:  d.Width,
+		Height: d.Height,
+		Weight: d.Weight,
+	}
+}
+
+func manufacturerFromModel(m *model.Manufacturer) *inventorypbv1.Manufacturer {
+	if m == nil {
+		return nil
+	}
+	return &inventorypbv1.Manufacturer{
+		Name:    m.Name,
+		Country: m.Country,
+		Website: m.Website,
+	}
+}
+
+func metadataFromModel(src map[string]any) map[string]*inventorypbv1.Value {
+	if src == nil {
+		return nil
+	}
+
+	dst := make(map[string]*inventorypbv1.Value, len(src))
+	for k, v := range src {
+		if v == nil {
+			continue
+		}
+		switch vv := v.(type) {
+		case string:
+			dst[k] = &inventorypbv1.Value{Value: &inventorypbv1.Value_StringValue{StringValue: vv}}
+		case int64:
+			dst[k] = &inventorypbv1.Value{Value: &inventorypbv1.Value_Int64Value{Int64Value: vv}}
+		case float64:
+			dst[k] = &inventorypbv1.Value{Value: &inventorypbv1.Value_DoubleValue{DoubleValue: vv}}
+		case bool:
+			dst[k] = &inventorypbv1.Value{Value: &inventorypbv1.Value_BoolValue{BoolValue: vv}}
+		default:
+		}
+	}
+	return dst
 }

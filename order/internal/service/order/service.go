@@ -78,6 +78,7 @@ func (svc *service) Create(
 	endedParts := make([]string, 0, len(params.PartIDs))
 	for _, p := range parts {
 		if p.StockQuantity <= 0 {
+			log.Printf("%s: %#v", op, p)
 			endedParts = append(endedParts, p.ID)
 			continue
 		}

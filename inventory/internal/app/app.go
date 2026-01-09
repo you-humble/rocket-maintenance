@@ -36,7 +36,10 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 	}()
 
-	repo := repository.NewPartRepository()
+	repo, err := repository.NewPartRepository()
+	if err != nil {
+		return err
+	}
 	svc := service.NewInventoryService(repo)
 	handler := transport.NewInventoryHandler(svc)
 
