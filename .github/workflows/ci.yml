@@ -39,7 +39,7 @@ jobs:
       go-version: ${{ needs.extract-vars.outputs.go-version }}
 
   coverage:
-    # if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/test-coverage-reusable.yml
     needs: test
     with:

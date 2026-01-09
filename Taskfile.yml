@@ -40,7 +40,7 @@ vars:
   COVERAGE_DIR: "{{.ROOT_DIR}}/coverage"
   COVERAGE_FILE: total.out
 
-  MODULES: inventory order payment
+  MODULES: inventory order payment shared
 
 tasks:
   install-formatters:
