@@ -66,6 +66,6 @@ jobs:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: ${{ env.GIST_ID }}
           filename: coverage.json
-          label: Coverage
+          label: Code Coverage
           message: ${{ env.TOTAL_COVERAGE }}
           color: green
