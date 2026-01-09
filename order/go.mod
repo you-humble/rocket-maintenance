@@ -5,7 +5,6 @@ go 1.25.4
 replace github.com/you-humble/rocket-maintenance/shared => ../shared
 
 require (
-	github.com/go-faker/faker/v4 v4.7.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
 	github.com/you-humble/rocket-maintenance/shared v0.0.0-00010101000000-000000000000

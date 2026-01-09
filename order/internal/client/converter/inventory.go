@@ -3,9 +3,10 @@ package converter
 import (
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/you-humble/rocket-maintenance/order/internal/model"
 	inventorypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func PartsListToModel(parts []*inventorypbv1.Part) []model.Part {

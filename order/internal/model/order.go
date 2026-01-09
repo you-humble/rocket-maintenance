@@ -2,8 +2,10 @@ package model
 
 import "github.com/google/uuid"
 
-type PaymentMethod string
-type OrderStatus string
+type (
+	PaymentMethod string
+	OrderStatus   string
+)
 
 const (
 	PaymentMethodUnknown       PaymentMethod = "PAYMENT_METHOD_UNKNOWN"

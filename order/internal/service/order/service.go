@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/you-humble/rocket-maintenance/order/internal/model"
 )
 
@@ -30,7 +31,7 @@ type PaymentClient interface {
 }
 
 type service struct {
-	repo   OrderRepository
+	repo      OrderRepository
 	inventory InventoryClient
 	payment   PaymentClient
 }
@@ -41,7 +42,7 @@ func NewOrderService(
 	payment PaymentClient,
 ) *service {
 	return &service{
-		repo:   repository,
+		repo:      repository,
 		inventory: inventory,
 		payment:   payment,
 	}

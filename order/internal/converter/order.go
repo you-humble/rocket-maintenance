@@ -2,6 +2,7 @@ package converter
 
 import (
 	"github.com/google/uuid"
+
 	"github.com/you-humble/rocket-maintenance/order/internal/model"
 	orderv1 "github.com/you-humble/rocket-maintenance/shared/pkg/openapi/order/v1"
 	inventorypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1"

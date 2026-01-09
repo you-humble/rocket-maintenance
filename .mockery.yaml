@@ -7,3 +7,8 @@ packages:
     config:
       all: true
       filename: "mock_{{ snakecase .InterfaceName }}.go"
+
+  github.com/you-humble/rocket-maintenance/inventory/internal/service/part:
+    config:
+      all: true
+      filename: "mock_{{ snakecase .InterfaceName }}.go"

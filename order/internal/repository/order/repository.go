@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
 	"github.com/you-humble/rocket-maintenance/order/internal/model"
 )
 

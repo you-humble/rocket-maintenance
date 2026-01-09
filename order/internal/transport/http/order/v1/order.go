@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+
 	"github.com/you-humble/rocket-maintenance/order/internal/converter"
 	"github.com/you-humble/rocket-maintenance/order/internal/model"
 	orderv1 "github.com/you-humble/rocket-maintenance/shared/pkg/openapi/order/v1"
@@ -25,15 +26,15 @@ type OrderService interface {
 }
 
 type handler struct {
-	service OrderService
+	svc OrderService
 }
 
 func NewOrderHandler(service OrderService) *handler {
-	return &handler{service: service}
+	return &handler{svc: service}
 }
 
 func (h *handler) CreateOrder(ctx context.Context, req *orderv1.CreateOrderRequest) (orderv1.CreateOrderRes, error) {
-	res, err := h.service.Create(ctx, converter.CreateOrderRequestToParams(req))
+	res, err := h.svc.Create(ctx, converter.CreateOrderRequestToParams(req))
 	if err != nil {
 		return mapErrorToCreateOrderRes(err)
 	}
@@ -50,7 +51,7 @@ func (h *handler) PayOrder(ctx context.Context, req *orderv1.PayOrderRequest, pa
 		}, nil
 	}
 
-	res, err := h.service.Pay(ctx, converter.PayOrderRequestToParams(ordID, req))
+	res, err := h.svc.Pay(ctx, converter.PayOrderRequestToParams(ordID, req))
 	if err != nil {
 		return mapErrorToPayOrderRes(err)
 	}
@@ -67,7 +68,7 @@ func (h *handler) GetOrderByUUID(ctx context.Context, params orderv1.GetOrderByU
 		}, nil
 	}
 
-	ord, err := h.service.OrderByID(ctx, ordID)
+	ord, err := h.svc.OrderByID(ctx, ordID)
 	if err != nil {
 		return mapErrorToGetOrderRes(err)
 	}
@@ -84,7 +85,7 @@ func (h *handler) CancelOrder(ctx context.Context, params orderv1.CancelOrderPar
 		}, nil
 	}
 
-	if err := h.service.Cancel(ctx, ordID); err != nil {
+	if err := h.svc.Cancel(ctx, ordID); err != nil {
 		return mapErrorToCancelOrderRes(err)
 	}
 
