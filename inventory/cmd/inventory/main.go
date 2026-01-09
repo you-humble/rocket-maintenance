@@ -33,16 +33,16 @@ var (
 )
 
 // ============ Part Storage ============
-type partStorage struct {
+type repository struct {
 	mu   sync.RWMutex
 	data map[string]*inventorypbv1.Part
 }
 
-func NewPartStorage() *partStorage {
-	return &partStorage{data: make(map[string]*inventorypbv1.Part)}
+func NewPartStorage() *repository {
+	return &repository{data: make(map[string]*inventorypbv1.Part)}
 }
 
-func (s *partStorage) PartByID(_ context.Context, id string) (*inventorypbv1.Part, error) {
+func (s *repository) PartByID(_ context.Context, id string) (*inventorypbv1.Part, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -59,7 +59,7 @@ func (s *partStorage) PartByID(_ context.Context, id string) (*inventorypbv1.Par
 	return cp, nil
 }
 
-func (s *partStorage) ListParts(_ context.Context) ([]*inventorypbv1.Part, error) {
+func (s *repository) ListParts(_ context.Context) ([]*inventorypbv1.Part, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -75,7 +75,7 @@ func (s *partStorage) ListParts(_ context.Context) ([]*inventorypbv1.Part, error
 	return result, nil
 }
 
-func (s *partStorage) AddParts(_ context.Context, parts []*inventorypbv1.Part) error {
+func (s *repository) AddParts(_ context.Context, parts []*inventorypbv1.Part) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -97,12 +97,12 @@ func (s *partStorage) AddParts(_ context.Context, parts []*inventorypbv1.Part) e
 
 type InventoryService struct {
 	inventorypbv1.UnimplementedInventoryServiceServer
-	storage *partStorage
+	repo *repository
 }
 
-func NewInventoryService(storage *partStorage) *InventoryService {
+func NewInventoryService(repository *repository) *InventoryService {
 	return &InventoryService{
-		storage: storage,
+		repo: repository,
 	}
 }
 
@@ -116,7 +116,7 @@ func (s *InventoryService) GetPart(
 		return nil, status.Error(codes.InvalidArgument, "uuid must be non-empty")
 	}
 
-	part, err := s.storage.PartByID(ctx, req.GetUuid())
+	part, err := s.repo.PartByID(ctx, req.GetUuid())
 	if err != nil {
 		if errors.Is(err, ErrPartNotFound) {
 			return nil, status.Error(codes.NotFound, "part not found")
@@ -136,7 +136,7 @@ func (s *InventoryService) ListParts(
 ) (*inventorypbv1.ListPartsResponse, error) {
 	const op string = "InventoryService.ListParts"
 
-	allParts, err := s.storage.ListParts(ctx)
+	allParts, err := s.repo.ListParts(ctx)
 	if err != nil {
 		log.Printf("%s: %+v", op, err)
 		return nil, status.Error(codes.Internal, "failed to list parts")
@@ -317,7 +317,7 @@ func main() {
 
 // =====================================================
 
-func seedStorage(ctx context.Context, storage *partStorage) error {
+func seedStorage(ctx context.Context, repository *repository) error {
 	now := timestamppb.Now()
 
 	parts := []*inventorypbv1.Part{
@@ -405,5 +405,5 @@ func seedStorage(ctx context.Context, storage *partStorage) error {
 		},
 	}
 
-	return storage.AddParts(ctx, parts)
+	return repository.AddParts(ctx, parts)
 }

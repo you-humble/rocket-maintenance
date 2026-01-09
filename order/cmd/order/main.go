@@ -17,9 +17,9 @@ import (
 
 	invclient "github.com/you-humble/rocket-maintenance/order/internal/client/grpc/inventory/v1"
 	pmtclient "github.com/you-humble/rocket-maintenance/order/internal/client/grpc/payment/v1"
-	"github.com/you-humble/rocket-maintenance/order/internal/repository"
-	"github.com/you-humble/rocket-maintenance/order/internal/service"
-	thttp "github.com/you-humble/rocket-maintenance/order/internal/transport/http/v1"
+	"github.com/you-humble/rocket-maintenance/order/internal/repository/order"
+	"github.com/you-humble/rocket-maintenance/order/internal/service/order"
+	thttp "github.com/you-humble/rocket-maintenance/order/internal/transport/http/order/v1"
 	orderv1 "github.com/you-humble/rocket-maintenance/shared/pkg/openapi/order/v1"
 	inventorypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1"
 	paymentpbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/payment/v1"
