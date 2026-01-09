@@ -1,0 +1,9 @@
+dir: "{{.InterfaceDir}}/mocks"
+pkgname: "mocks"
+template: testify
+
+packages:
+  github.com/you-humble/rocket-maintenance/order/internal/service:
+    config:
+      all: true
+      filename: "mock_{{ snakecase .InterfaceName }}.go"

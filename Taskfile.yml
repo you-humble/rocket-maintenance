@@ -15,6 +15,8 @@ vars:
   PROTOC_GEN_GO_GRPC_VERSION: "v1.6.0"
   GRPCURL_VERSION: "v1.9.3"
 
+  MOCKERY_VERSION: "v3.6.1"
+
   BIN_DIR: "{{.ROOT_DIR}}/bin"
   GOLANGCI_LINT: "{{.BIN_DIR}}/golangci-lint"
   GCI: "{{.BIN_DIR}}/gci"
@@ -25,6 +27,7 @@ vars:
   PROTOC_GEN_GO: "{{.BIN_DIR}}/protoc-gen-go"
   PROTOC_GEN_GO_GRPC: "{{.BIN_DIR}}/protoc-gen-go-grpc"
   GRPCURL: "{{.BIN_DIR}}/grpcurl"
+  MOCKERY: "{{.BIN_DIR}}/mockery"
 
   NODE_MODULES_DIR: "{{.ROOT_DIR}}/node_modules/.bin"
   REDOCLY: "{{.NODE_MODULES_DIR}}/redocly"
@@ -33,6 +36,9 @@ vars:
   OPEN_API_ORDER_V1_BUNDLE: "{{.ROOT_DIR}}/shared/api/bundles/order.openapi.v1.bundle.yaml"
 
   OPEN_API_FILES: "{{.ROOT_DIR}}/shared/api/bundles"
+
+  COVERAGE_DIR: "{{.ROOT_DIR}}/coverage"
+  COVERAGE_FILE: total.out
 
   MODULES: assembly inventory order payment platform iam notification shared
 
@@ -172,6 +178,25 @@ tasks:
           GOBIN={{.BIN_DIR}} go install github.com/mikefarah/yq/v4@{{.YQ_VERSION}}
         }
 
+  mockery:install:
+    desc: "Устанавливает mockery в ./bin"
+    cmds:
+      - |
+        [ -f {{.MOCKERY}} ] || {
+          echo '📦 Installing mockery...'
+          GOBIN={{.BIN_DIR}} go install github.com/vektra/mockery/v3@{{.MOCKERY_VERSION}}
+        }
+    status:
+      - test -x {{.MOCKERY}}
+
+  mockery:gen:
+    desc: "Генерирует моки интерфейсов с помощью mockery"
+    deps: [mockery:install]
+    cmds:
+      - |
+        echo '🧪 Генерация моков...'
+        {{.MOCKERY}}
+
   ogen:gen:
     desc: "Генерация Go-кода из всех OpenAPI-деклараций с x-ogen"
     deps: [ogen:install, yq:install]
@@ -265,7 +290,7 @@ tasks:
     desc: Запуск inventory-сервиса
     dir: "{{.ROOT_DIR}}/inventory"
     cmds:
-      - go run ./cmd/main.go
+      - go run ./cmd/inventory/main.go
 
   run-payment:
     desc: Запуск payment-сервиса
@@ -277,7 +302,7 @@ tasks:
     desc: Запуск order-сервиса
     dir: "{{.ROOT_DIR}}/order"
     cmds:
-      - go run ./cmd/main.go
+      - go run ./cmd/order/main.go
 
   run:
     desc: Запуск всех сервисов параллельно в одном терминале
@@ -480,3 +505,92 @@ tasks:
 
         echo
         echo "🎉 Все тесты API успешно выполнены!"
+
+  test-coverage:
+    desc: "Тесты с покрытием бизнес-логики (service/repository), отчёт по каждому модулю + общий"
+    cmds:
+      - |
+        echo "🧪 Запускаем расчёт покрытия..."
+        rm -rf {{.COVERAGE_DIR}}
+        mkdir -p {{.COVERAGE_DIR}}
+
+        ERR=0
+        for mod in {{.MODULES}}; do
+          echo "📦 Обрабатываем модуль: $mod"
+
+          TARGET_PKGS=$(go list ./$mod/... \
+            | grep -E '/(internal/(service|repository))' \
+            | grep -vE '/(mocks|testdata|pkg|api|proto|pb|cmd)' \
+            | paste -sd "," -)
+
+          if [ -z "$TARGET_PKGS" ]; then
+            echo "⚠️  Нет подходящих пакетов в $mod"
+            continue
+          fi
+
+          go test -coverpkg="$TARGET_PKGS" \
+            -coverprofile={{.COVERAGE_DIR}}/$mod.out \
+            -covermode=atomic \
+            $(echo "$TARGET_PKGS" | tr "," " ") || ERR=1
+        done
+
+        if [ $ERR -ne 0 ]; then
+          echo "❌ Ошибки во время тестов"
+          exit $ERR
+        fi
+
+        echo
+        echo "📊 Покрытие по каждому модулю:"
+        for mod in {{.MODULES}}; do
+          OUTFILE="{{.COVERAGE_DIR}}/$mod.out"
+          if [ -f "$OUTFILE" ]; then
+            printf " • %s: " "$mod"
+            go tool cover -func="$OUTFILE" | tail -n1
+          fi
+        done
+
+        echo
+        echo "📦 Склеиваем все покрытия..."
+        {
+          echo "mode: atomic"
+          find {{.COVERAGE_DIR}} -type f -name '*.out' ! -name '{{.COVERAGE_FILE}}' \
+            -exec grep -h -v "^mode:" {} +
+        } > {{.COVERAGE_DIR}}/{{.COVERAGE_FILE}}
+
+        echo
+        echo "🧾 Общее покрытие по всем модулям:"
+        go tool cover -func={{.COVERAGE_DIR}}/{{.COVERAGE_FILE}} | tail -n1
+
+  coverage:html:
+    desc: "Генерирует HTML-отчёт покрытия и открывает его в браузере"
+    deps: [test-coverage]
+    cmds:
+      - |
+        OUTPUT={{.COVERAGE_DIR}}/coverage.html
+        echo "🌐 Генерируем HTML-отчёт..."
+        go tool cover -html={{.COVERAGE_DIR}}/{{.COVERAGE_FILE}} -o $OUTPUT
+
+        echo "🚀 Открываем $OUTPUT"
+        if command -v open &> /dev/null; then
+          open $OUTPUT  # macOS
+        elif command -v xdg-open &> /dev/null; then
+          xdg-open $OUTPUT  # Linux
+        else
+          echo "📂 Отчёт сохранён в $OUTPUT (открой вручную)"
+        fi
+
+  test:
+    desc: "Запускает юнит-тесты для всех модулей"
+    summary: |
+      Запускает юнит-тесты для указанных модулей проекта.
+      Можно указать конкретные модули через переменную MODULES.
+    cmds:
+      - |
+        ERR=0
+        for mod in {{.MODULES}}; do
+          if [ -d "$mod" ]; then
+            echo "🧪 Тестируем модуль $mod"
+            go test -v ./$mod/... || ERR=1
+          fi
+        done
+        exit $ERR
