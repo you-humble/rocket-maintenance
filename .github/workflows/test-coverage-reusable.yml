@@ -34,6 +34,11 @@ jobs:
         with:
           go-version: ${{ inputs.go-version }}
 
+      - name: 📥📥📥 Debug Go env
+        run: |
+          go version
+          go env | grep -E 'GOVERSION|GOTOOLCHAIN|GOWORK|GOFLAGS'
+
       - name: 📌 Install Task
         uses: arduino/setup-task@v2.0.0
 

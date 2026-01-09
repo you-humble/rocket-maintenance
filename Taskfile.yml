@@ -511,8 +511,8 @@ tasks:
           echo "📦 Обрабатываем модуль: $mod"
 
           TARGET_PKGS=$(go list ./$mod/... \
-            | grep -E '/(internal/(service|repository))' \
-            | grep -vE '/(mocks|testdata|pkg|api|proto|pb|cmd)' \
+            | grep -E '/(internal/(service))' \
+            | grep -vE '/(mocks|testdata|pkg|transport|repository|proto|pb|cmd)' \
             | paste -sd "," -)
 
           if [ -z "$TARGET_PKGS" ]; then
