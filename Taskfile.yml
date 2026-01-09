@@ -40,7 +40,7 @@ vars:
   COVERAGE_DIR: "{{.ROOT_DIR}}/coverage"
   COVERAGE_FILE: total.out
 
-  MODULES: assembly inventory order payment platform iam notification
+  MODULES: inventory order payment
 
 tasks:
   install-formatters:
