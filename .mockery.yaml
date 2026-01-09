@@ -12,3 +12,8 @@ packages:
     config:
       all: true
       filename: "mock_{{ snakecase .InterfaceName }}.go"
+
+  github.com/you-humble/rocket-maintenance/payment/internal/service/payment:
+    config:
+      all: true
+      filename: "mock_{{ snakecase .InterfaceName }}.go"

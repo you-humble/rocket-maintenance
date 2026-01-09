@@ -296,7 +296,7 @@ tasks:
     desc: Запуск payment-сервиса
     dir: "{{.ROOT_DIR}}/payment"
     cmds:
-      - go run ./cmd/main.go
+      - go run ./cmd/payment/main.go
 
   run-order:
     desc: Запуск order-сервиса
