@@ -23,7 +23,7 @@ func NewInventoryService(
 	repo PartRepository,
 	readDBTimeout time.Duration,
 ) *service {
-	return &service{repo: repo}
+	return &service{repo: repo, readDBTimeout: readDBTimeout}
 }
 
 func (s *service) Part(ctx context.Context, partID string) (*model.Part, error) {

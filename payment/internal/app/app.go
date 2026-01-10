@@ -11,20 +11,17 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/you-humble/rocket-maintenance/payment/internal/config"
 	service "github.com/you-humble/rocket-maintenance/payment/internal/service/payment"
 	"github.com/you-humble/rocket-maintenance/payment/internal/transport/grpc/interceptors"
 	transport "github.com/you-humble/rocket-maintenance/payment/internal/transport/grpc/payment/v1"
 	paymentpbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/payment/v1"
 )
 
-type Config struct {
-	GRPCAddr string
-}
-
-func Run(ctx context.Context, cfg Config) error {
+func Run(ctx context.Context, srvCfg config.Server) error {
 	const op string = "payment"
 
-	lis, err := net.Listen("tcp", cfg.GRPCAddr)
+	lis, err := net.Listen("tcp", srvCfg.Address())
 	if err != nil {
 		log.Printf("%s: failed to listen: %v\n", op, err)
 		return err
@@ -50,7 +47,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("🚀 gRPC server listening on %s\n", cfg.GRPCAddr)
+		log.Printf("🚀 gRPC server listening on %s\n", srvCfg.Address())
 		if err := s.Serve(lis); err != nil {
 			errCh <- err
 		}

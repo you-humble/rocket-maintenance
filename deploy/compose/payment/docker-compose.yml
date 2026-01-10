@@ -4,6 +4,8 @@ services:
     build:
       context: ../../../
       dockerfile: payment/cmd/payment/Dockerfile
+    env_file:
+      - .env
     ports:
       - "${GRPC_PORT}:${GRPC_PORT}"
     networks:

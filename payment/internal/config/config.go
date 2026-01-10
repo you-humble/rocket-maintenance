@@ -7,7 +7,7 @@ import (
 
 	"github.com/joho/godotenv"
 
-	envconfig "github.com/you-humble/rocket-maintenance/inventory/internal/config/env"
+	envconfig "github.com/you-humble/rocket-maintenance/payment/internal/config/env"
 )
 
 var cfg *config
@@ -15,7 +15,6 @@ var cfg *config
 type config struct {
 	Server Server
 	Logger Logger
-	Mongo  Database
 }
 
 func Load(path ...string) error {
@@ -37,15 +36,9 @@ func Load(path ...string) error {
 		return fmt.Errorf("%s Logger: %w", op, err)
 	}
 
-	mongoCfg, err := envconfig.NewMongoConfig()
-	if err != nil {
-		return fmt.Errorf("%s Mongo: %w", op, err)
-	}
-
 	cfg = &config{
 		Server: serverCfg,
 		Logger: loggerCfg,
-		Mongo:  mongoCfg,
 	}
 
 	return nil

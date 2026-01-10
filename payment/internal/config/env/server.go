@@ -2,7 +2,6 @@ package envconfig
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/caarlos0/env/v11"
 )
@@ -10,8 +9,6 @@ import (
 type grpcServerEnv struct {
 	Host string `env:"GRPC_HOST,required"`
 	Port int    `env:"GRPC_PORT,required"`
-
-	DBReadTimeout time.Duration `env:"DB_READ_TIMEOUT,required"`
 }
 
 type grpcServer struct {
@@ -30,8 +27,4 @@ func (cfg *grpcServer) Host() string { return cfg.raw.Host }
 func (cfg *grpcServer) Port() int    { return cfg.raw.Port }
 func (cfg *grpcServer) Address() string {
 	return fmt.Sprintf("%s:%d", cfg.Host(), cfg.Port())
-}
-
-func (cfg *grpcServer) BDEReadTimeout() time.Duration {
-	return cfg.raw.DBReadTimeout
 }
