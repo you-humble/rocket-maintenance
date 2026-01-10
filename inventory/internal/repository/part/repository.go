@@ -2,163 +2,96 @@ package repository
 
 import (
 	"context"
-	"sync"
+	"errors"
+	"fmt"
+	"log"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/you-humble/rocket-maintenance/inventory/internal/model"
 )
 
 type repository struct {
-	mu   sync.RWMutex
-	data map[string]*model.Part
+	coll *mongo.Collection
 }
 
-func NewPartRepository(ctx context.Context) (*repository, error) {
-	repo := &repository{data: make(map[string]*model.Part)}
-
-	if err := bootstrap(ctx, repo); err != nil {
-		return nil, err
-	}
-
-	return repo, nil
+func NewPartRepository(collection *mongo.Collection) *repository {
+	return &repository{coll: collection}
 }
 
-func (s *repository) PartByID(_ context.Context, id string) (*model.Part, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+func (s *repository) PartByID(ctx context.Context, id string) (*model.Part, error) {
+	const op = "repository.PartByID"
 
-	p, ok := s.data[id]
-	if !ok {
-		return nil, model.ErrPartNotFound
+	var ent PartEntity
+	err := s.coll.FindOne(ctx, bson.M{"_id": id}).Decode(&ent)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, model.ErrPartNotFound
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return clonePart(p), nil
+	return EntityToModel(&ent), nil
 }
 
-func (r *repository) List(_ context.Context) ([]*model.Part, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+func (r *repository) List(ctx context.Context, filter model.PartsFilter) ([]*model.Part, error) {
+	const op = "repository.List"
 
-	out := make([]*model.Part, 0, len(r.data))
-	for _, p := range r.data {
-		out = append(out, clonePart(p))
+	cur, err := r.coll.Find(ctx, BuildMongoFilter(filter))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
+	defer func() {
+		if cerr := cur.Close(ctx); err != nil {
+			log.Printf("%s failed to close cursor: %s", op, cerr)
+			return
+		}
+	}()
+
+	out := make([]*model.Part, 0)
+	for cur.Next(ctx) {
+		var ent PartEntity
+		if err := cur.Decode(&ent); err != nil {
+			return nil, fmt.Errorf("%s decode: %w", op, err)
+		}
+		out = append(out, EntityToModel(&ent))
+	}
+	if err := cur.Err(); err != nil {
+		return nil, fmt.Errorf("%s cursor: %w", op, err)
+	}
+
 	return out, nil
 }
 
-func (r *repository) add(_ context.Context, parts []*model.Part) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *repository) CreateBatch(ctx context.Context, parts []*model.Part) error {
+	const op = "repository.CreateBatch"
 
+	docs := make([]any, 0, len(parts))
 	for _, p := range parts {
-		if p.ID == "" {
-			return model.ErrInvalidArgument
+		if p == nil {
+			continue
 		}
-		r.data[p.ID] = clonePart(p)
+		if p.ID == "" {
+			return fmt.Errorf("%s: part ID is empty", op)
+		}
+		if p.CreatedAt == nil || p.CreatedAt.IsZero() {
+			p.CreatedAt = lo.ToPtr(time.Now())
+		}
+
+		docs = append(docs, EntityFromModel(p))
 	}
+	if len(docs) == 0 {
+		return nil
+	}
+
+	_, err := r.coll.InsertMany(ctx, docs, options.InsertMany().SetOrdered(false))
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
 	return nil
-}
-
-func clonePart(p *model.Part) *model.Part {
-	cp := *p
-
-	if p.Manufacturer != nil {
-		m := *p.Manufacturer
-		cp.Manufacturer = &m
-	}
-	return &cp
-}
-
-func bootstrap(ctx context.Context, repository *repository) error {
-	now := time.Now()
-
-	parts := []*model.Part{
-		{
-			ID:            uuid.NewString(),
-			Name:          "HyperDrive Engine Mk1",
-			Description:   "Основной гипердрайв для малых космических кораблей.",
-			PriceCents:    12500050,
-			StockQuantity: 10,
-			Category:      model.CategoryEngine,
-			Dimensions: &model.Dimensions{
-				Length: 250.0,
-				Width:  180.0,
-				Height: 140.0,
-				Weight: 3200.0,
-			},
-			Manufacturer: &model.Manufacturer{
-				Name:    "Andromeda Drives Inc.",
-				Country: "USA",
-				Website: "https://andromeda-drives.example.com",
-			},
-			Tags: []string{"engine", "hyperdrive", "mk1", "small-ship"},
-			Metadata: map[string]any{
-				"max_thrust_kn":  850.0,
-				"warranty_years": 5,
-				"military_grade": true,
-				"fuel_type":      "quantum-plasma",
-			},
-			CreatedAt: lo.ToPtr(now),
-			UpdatedAt: lo.ToPtr(now),
-		},
-		{
-			ID:            uuid.NewString(),
-			Name:          "Quantum Fuel Cell QF-200",
-			Description:   "Топливная ячейка для гипердрайвов серии QF.",
-			PriceCents:    780000,
-			StockQuantity: 120,
-			Category:      model.CategoryFuel,
-			Dimensions: &model.Dimensions{
-				Length: 80.0,
-				Width:  40.0,
-				Height: 35.0,
-				Weight: 45.0,
-			},
-			Manufacturer: &model.Manufacturer{
-				Name:    "Sirius Energy Systems",
-				Country: "Germany",
-				Website: "https://sirius-energy.example.com",
-			},
-			Tags: []string{"fuel", "quantum", "cell", "qf-series"},
-			Metadata: map[string]any{
-				"capacity_kwh":      250.0,
-				"compatible_engine": "HyperDrive Engine Mk1",
-				"hazard_class":      3,
-			},
-			CreatedAt: lo.ToPtr(now),
-			UpdatedAt: lo.ToPtr(now),
-		},
-		{
-			ID:            uuid.NewString(),
-			Name:          "Panoramic Porthole PX-360",
-			Description:   "Панорамный иллюминатор с круговым обзором 360°.",
-			PriceCents:    1520000,
-			StockQuantity: 35,
-			Category:      model.CategoryPorthole,
-			Dimensions: &model.Dimensions{
-				Length: 120.0,
-				Width:  120.0,
-				Height: 12.0,
-				Weight: 65.0,
-			},
-			Manufacturer: &model.Manufacturer{
-				Name:    "Orion Optics",
-				Country: "Japan",
-				Website: "https://orion-optics.example.com",
-			},
-			Tags: []string{"porthole", "glass", "panoramic", "px-360"},
-			Metadata: map[string]any{
-				"glass_type":           "triplex-titanium",
-				"max_pressure_bar":     120.0,
-				"radiation_protection": true,
-			},
-			CreatedAt: lo.ToPtr(now),
-			UpdatedAt: lo.ToPtr(now),
-		},
-	}
-
-	return repository.add(ctx, parts)
 }

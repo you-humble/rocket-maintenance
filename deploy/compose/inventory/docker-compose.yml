@@ -7,6 +7,8 @@ services:
     depends_on:
       mongo-inventory:
         condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://inventory-service-user:inventory-service-password@mongo-inventory:27017/inventory-service?authSource=admin
     ports:
       - "50051:50051"
     networks:
@@ -14,12 +16,12 @@ services:
 
 
   mongo-inventory:
-    image: mongo:7.0.5
+    image: mongo:8.2.3
     container_name: mongo-inventory
     environment: 
       MONGO_INITDB_DATABASE: inventory-service 
       MONGO_INITDB_ROOT_USERNAME: inventory-service-user 
-      MONGO_INITDB_ROOT_PASSWORD: inventory-service-password 
+      MONGO_INITDB_ROOT_PASSWORD: inventory-service-password
     volumes:
       - mongo_inventory_data:/data/db
     ports:

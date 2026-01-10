@@ -725,3 +725,8 @@ tasks:
         mkdir -p {{.ORDER_MIGRATIONS_DIR}}
         echo "📝 Создаем миграцию: {{.CLI_ARGS}}"
         {{.BIN_DIR}}/goose -dir {{.ORDER_MIGRATIONS_DIR}} create "{{.CLI_ARGS}}" sql
+
+  chown:
+    desc: Рекурсивно сменить владельца и группу на текущего пользователя
+    cmds:
+      - sudo chown -R $USER:$(id -gn) {{.ROOT_DIR}}

@@ -34,7 +34,7 @@ const (
 	paymentGRPCAddr   = "payment:50052"
 	readHeaderTimeout = 5 * time.Second
 	shutdownTimeout   = 10 * time.Second
-	pgDsn             = "postgres://order-service-user:order-service-password@postgres-order:5432/order-service?sslmode=disable"
+	pgDSN             = "postgres://order-service-user:order-service-password@postgres-order:5432/order-service?sslmode=disable"
 	migrationsDir     = "./migrations"
 )
 
@@ -79,7 +79,7 @@ func main() {
 	defer cancel()
 
 	// DB pool
-	pool, err := pgxpool.New(ctx, pgDsn)
+	pool, err := pgxpool.New(ctx, pgDSN)
 	if err != nil {
 		log.Printf("failed to create pg pool: %v\n", err)
 		return
