@@ -7,10 +7,10 @@ services:
     depends_on:
       postgres-order:
         condition: service_healthy
+    env_file:
+      - .env
     ports:
-      - "8080:8080"
-    environment:
-      POSTGRES_DSN: "postgres://order-service-user:order-service-password@postgres-order:5432/order-service?sslmode=disable"
+      - "${HTTP_PORT}:${HTTP_PORT}"
     volumes:
       - ../../../order/migrations:/app/migrations:ro
     networks:
@@ -18,17 +18,15 @@ services:
 
   postgres-order:
     image: postgres:17.0-alpine3.20
-    container_name: postgres-order
-    environment:
-      POSTGRES_DB: order-service
-      POSTGRES_USER: order-service-user 
-      POSTGRES_PASSWORD: order-service-password 
+    container_name: ${POSTGRES_HOST}
+    env_file:
+      - .env
     volumes:
       - postgres_order_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${EXTERNAL_POSTGRES_PORT}:${POSTGRES_PORT}"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U order-service-user -d order-service" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 10s  
       timeout: 5s    
       retries: 5  

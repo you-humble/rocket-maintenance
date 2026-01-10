@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/you-humble/rocket-maintenance/inventory/internal/config"
 	repository "github.com/you-humble/rocket-maintenance/inventory/internal/repository/part"
 	service "github.com/you-humble/rocket-maintenance/inventory/internal/service/part"
 	"github.com/you-humble/rocket-maintenance/inventory/internal/transport/grpc/interceptors"
@@ -22,15 +23,15 @@ import (
 	inventorypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1"
 )
 
-type Config struct {
-	GRPCAddr string
-	MongoDSN string
-}
-
-func Run(ctx context.Context, cfg Config) error {
+func Run(
+	ctx context.Context,
+	srvConfg config.Server,
+	// logCfg config.Logger,
+	dbCfg config.Database,
+) error {
 	const op string = "inventory"
 
-	lis, err := net.Listen("tcp", cfg.GRPCAddr)
+	lis, err := net.Listen("tcp", srvConfg.Address())
 	if err != nil {
 		log.Printf("%s: failed to listen: %v\n", op, err)
 		return err
@@ -42,7 +43,7 @@ func Run(ctx context.Context, cfg Config) error {
 	}()
 
 	mongoClient, err := mongo.Connect(
-		options.Client().ApplyURI(cfg.MongoDSN),
+		options.Client().ApplyURI(dbCfg.DSN()),
 	)
 	if err != nil {
 		return err
@@ -58,7 +59,9 @@ func Run(ctx context.Context, cfg Config) error {
 		return err
 	}
 
-	collection := mongoClient.Database("inventory-service").Collection("parts")
+	collection := mongoClient.
+		Database(dbCfg.DatabaseName()).
+		Collection(dbCfg.PartsCollection())
 	if err := EnsurePartIndexes(ctx, collection); err != nil {
 		return err
 	}
@@ -69,7 +72,7 @@ func Run(ctx context.Context, cfg Config) error {
 		return err
 	}
 
-	svc := service.NewInventoryService(repo)
+	svc := service.NewInventoryService(repo, srvConfg.BDEReadTimeout())
 	handler := transport.NewInventoryHandler(svc)
 
 	s := grpc.NewServer(
@@ -81,7 +84,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("🚀 gRPC server listening on %s\n", cfg.GRPCAddr)
+		log.Printf("🚀 gRPC server listening on %s\n", srvConfg.Address())
 		if err := s.Serve(lis); err != nil {
 			errCh <- err
 		}

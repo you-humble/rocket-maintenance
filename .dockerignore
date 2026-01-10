@@ -2,6 +2,8 @@
 /bin
 /build
 /server
+/coverage
+/node_modules
 
 # Игнорируем кэш и модули, если они есть локально
 /pkg

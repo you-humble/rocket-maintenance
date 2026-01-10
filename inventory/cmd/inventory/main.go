@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/you-humble/rocket-maintenance/inventory/internal/app"
+	"github.com/you-humble/rocket-maintenance/inventory/internal/config"
 )
 
 const (
@@ -15,9 +16,12 @@ const (
 func main() {
 	ctx := context.Background()
 
-	cfg := app.Config{GRPCAddr: GRPCAddr, MongoDSN: MongoDSN}
+	if err := config.Load(); err != nil {
+		log.Fatal(err)
+	}
+	cfg := config.C()
 
-	if err := app.Run(ctx, cfg); err != nil {
+	if err := app.Run(ctx, cfg.Server, cfg.Mongo); err != nil {
 		log.Fatalf("❌😵‍💫 inventory server stopped with error: %v", err)
 	}
 }

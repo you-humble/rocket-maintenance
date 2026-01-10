@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/you-humble/rocket-maintenance/inventory/internal/model"
 )
@@ -14,10 +15,14 @@ type PartRepository interface {
 }
 
 type service struct {
-	repo PartRepository
+	repo          PartRepository
+	readDBTimeout time.Duration
 }
 
-func NewInventoryService(repo PartRepository) *service {
+func NewInventoryService(
+	repo PartRepository,
+	readDBTimeout time.Duration,
+) *service {
 	return &service{repo: repo}
 }
 
@@ -27,6 +32,9 @@ func (s *service) Part(ctx context.Context, partID string) (*model.Part, error) 
 		return nil, errors.Join(model.ErrInvalidArgument, errors.New("uuid must be non-empty"))
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, s.readDBTimeout)
+	defer cancel()
+
 	p, err := s.repo.PartByID(ctx, partID)
 	if err != nil {
 		return nil, err
@@ -35,6 +43,9 @@ func (s *service) Part(ctx context.Context, partID string) (*model.Part, error) 
 }
 
 func (s *service) ListParts(ctx context.Context, filter model.PartsFilter) ([]*model.Part, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.readDBTimeout)
+	defer cancel()
+
 	out, err := s.repo.List(ctx, filter)
 	if err != nil {
 		return nil, err

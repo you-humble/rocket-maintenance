@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ func TestServicePart(t *testing.T) {
 	}
 
 	newSvc := func(d deps) *service {
-		return NewInventoryService(d.repository)
+		return NewInventoryService(d.repository, 5*time.Second)
 	}
 
 	type testCase struct {
@@ -124,7 +125,7 @@ func TestServiceListParts(t *testing.T) {
 	}
 
 	newSvc := func(d deps) *service {
-		return NewInventoryService(d.repository)
+		return NewInventoryService(d.repository, 5*time.Second)
 	}
 
 	// Stable test data set.
