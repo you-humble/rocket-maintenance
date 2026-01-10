@@ -98,6 +98,13 @@ func main() {
 			log.Printf("failed to close migrator db: %v\n", cerr)
 		}
 	}()
+
+	defer func() {
+		if dberr := m.Close(); err != nil {
+			log.Printf("failed to close migrator db connect: %v", dberr)
+		}
+	}()
+
 	if err := m.Up(); err != nil {
 		log.Printf("failed to apply migrations: %v\n", err)
 		return
