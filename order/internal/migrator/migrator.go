@@ -24,3 +24,7 @@ func (m *Migrator) Up() error {
 	}
 	return nil
 }
+
+func (m *Migrator) Close() error {
+	return m.db.Close()
+}

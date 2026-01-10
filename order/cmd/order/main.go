@@ -12,11 +12,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	invclient "github.com/you-humble/rocket-maintenance/order/internal/client/grpc/inventory/v1"
 	pmtclient "github.com/you-humble/rocket-maintenance/order/internal/client/grpc/payment/v1"
+	"github.com/you-humble/rocket-maintenance/order/internal/migrator"
 	repository "github.com/you-humble/rocket-maintenance/order/internal/repository/order"
 	service "github.com/you-humble/rocket-maintenance/order/internal/service/order"
 	thttp "github.com/you-humble/rocket-maintenance/order/internal/transport/http/order/v1"
@@ -31,6 +34,8 @@ const (
 	paymentGRPCAddr   = "payment:50052"
 	readHeaderTimeout = 5 * time.Second
 	shutdownTimeout   = 10 * time.Second
+	pgDsn             = "postgres://order-service-user:order-service-password@postgres-order:5432/order-service?sslmode=disable"
+	migrationsDir     = "./migrations"
 )
 
 func main() {
@@ -70,7 +75,35 @@ func main() {
 	grpcPaymentClient := paymentpbv1.NewPaymentServiceClient(payConn)
 	paymentClient := pmtclient.NewClient(grpcPaymentClient)
 
-	repo := repository.NewOrderRepository()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// DB pool
+	pool, err := pgxpool.New(ctx, pgDsn)
+	if err != nil {
+		log.Printf("failed to create pg pool: %v\n", err)
+		return
+	}
+	defer pool.Close()
+
+	if err := pool.Ping(ctx); err != nil {
+		log.Printf("failed to ping db: %v\n", err)
+		return
+	}
+
+	// Migrations
+	m := migrator.NewMigrator(stdlib.OpenDBFromPool(pool), migrationsDir)
+	defer func() {
+		if cerr := m.Close(); cerr != nil {
+			log.Printf("failed to close migrator db: %v\n", cerr)
+		}
+	}()
+	if err := m.Up(); err != nil {
+		log.Printf("failed to apply migrations: %v\n", err)
+		return
+	}
+
+	repo := repository.NewOrderRepository(pool)
 	service := service.NewOrderService(repo, inventoryClient, paymentClient)
 
 	handler := thttp.NewOrderHandler(service)
@@ -110,10 +143,10 @@ func main() {
 
 	log.Println("🛑 Server shutdown...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
+	sdCtx, sdCancel := context.WithTimeout(ctx, shutdownTimeout)
+	defer sdCancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(sdCtx); err != nil {
 		log.Printf("❌ Error during server shutdown: %v\n", err)
 		log.Println("❌😵‍💫 Server stopped")
 		return

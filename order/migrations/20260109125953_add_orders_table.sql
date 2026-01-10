@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS orders (
     id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id uuid NOT NULL,
     part_ids uuid[] NOT NULL,
-    total_price numeric(14, 2) NOT NULL,
+    total_price bigint NOT NULL,
     transaction_id uuid NULL,
     payment_method payment_method NULL,
     status order_status NOT NULL DEFAULT 'PENDING_PAYMENT',

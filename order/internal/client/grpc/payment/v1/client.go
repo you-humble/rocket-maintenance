@@ -2,6 +2,7 @@ package pmtclient
 
 import (
 	"context"
+	"log"
 
 	"github.com/you-humble/rocket-maintenance/order/internal/client/converter"
 	"github.com/you-humble/rocket-maintenance/order/internal/model"
@@ -19,6 +20,7 @@ func NewClient(grpc paymentpbv1.PaymentServiceClient) *client {
 func (c *client) PayOrder(ctx context.Context, params model.PayOrderParams) (string, error) {
 	paid, err := c.grpc.PayOrder(ctx, converter.PayOrderParamsToPB(params))
 	if err != nil {
+		log.Println("ERROR: payment.PayOrder:", err)
 		return "", err
 	}
 
