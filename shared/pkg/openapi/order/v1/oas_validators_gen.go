@@ -37,8 +37,20 @@ func (s *CreateOrderResponse) Validate() error {
 
 	var failures []validate.FieldError
 	if err := func() error {
-		if err := (validate.Float{}).Validate(float64(s.TotalPrice)); err != nil {
-			return errors.Wrap(err, "float")
+		if err := (validate.String{
+			MinLength:     0,
+			MinLengthSet:  false,
+			MaxLength:     0,
+			MaxLengthSet:  false,
+			Email:         false,
+			Hostname:      false,
+			Regex:         regexMap["^-?\\d+(\\.\\d{2})$"],
+			MinNumeric:    0,
+			MinNumericSet: false,
+			MaxNumeric:    0,
+			MaxNumericSet: false,
+		}).Validate(string(s.TotalPrice)); err != nil {
+			return errors.Wrap(err, "string")
 		}
 		return nil
 	}(); err != nil {
@@ -71,8 +83,20 @@ func (s *Order) Validate() error {
 		})
 	}
 	if err := func() error {
-		if err := (validate.Float{}).Validate(float64(s.TotalPrice)); err != nil {
-			return errors.Wrap(err, "float")
+		if err := (validate.String{
+			MinLength:     0,
+			MinLengthSet:  false,
+			MaxLength:     0,
+			MaxLengthSet:  false,
+			Email:         false,
+			Hostname:      false,
+			Regex:         regexMap["^-?\\d+(\\.\\d{2})$"],
+			MinNumeric:    0,
+			MinNumericSet: false,
+			MaxNumeric:    0,
+			MaxNumericSet: false,
+		}).Validate(string(s.TotalPrice)); err != nil {
+			return errors.Wrap(err, "string")
 		}
 		return nil
 	}(); err != nil {

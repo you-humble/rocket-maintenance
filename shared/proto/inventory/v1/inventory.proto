@@ -44,8 +44,8 @@ message Part {
   // Detailed description of the part.
   string description = 3;
 
-  // Unit price of the part.
-  double price = 4;
+  // Unit price of the part in cents.
+  int64 price_cents = 4;
 
   // Quantity of this part currently available in stock.
   int64 stock_quantity = 5;

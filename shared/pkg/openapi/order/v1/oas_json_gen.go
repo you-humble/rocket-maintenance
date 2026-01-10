@@ -393,7 +393,7 @@ func (s *CreateOrderResponse) encodeFields(e *jx.Encoder) {
 	}
 	{
 		e.FieldStart("total_price")
-		e.Float64(s.TotalPrice)
+		e.Str(s.TotalPrice)
 	}
 }
 
@@ -426,8 +426,8 @@ func (s *CreateOrderResponse) Decode(d *jx.Decoder) error {
 		case "total_price":
 			requiredBitSet[0] |= 1 << 1
 			if err := func() error {
-				v, err := d.Float64()
-				s.TotalPrice = float64(v)
+				v, err := d.Str()
+				s.TotalPrice = string(v)
 				if err != nil {
 					return err
 				}
@@ -928,7 +928,7 @@ func (s *Order) encodeFields(e *jx.Encoder) {
 	}
 	{
 		e.FieldStart("total_price")
-		e.Float64(s.TotalPrice)
+		e.Str(s.TotalPrice)
 	}
 	{
 		if s.TransactionUUID.Set {
@@ -1014,8 +1014,8 @@ func (s *Order) Decode(d *jx.Decoder) error {
 		case "total_price":
 			requiredBitSet[0] |= 1 << 3
 			if err := func() error {
-				v, err := d.Float64()
-				s.TotalPrice = float64(v)
+				v, err := d.Str()
+				s.TotalPrice = string(v)
 				if err != nil {
 					return err
 				}

@@ -22,7 +22,7 @@ type Part struct {
 	// Detailed description of the part.
 	Description string
 	// Unit price of the part.
-	Price float64
+	PriceCents int64
 	// Quantity of this part currently available in stock.
 	StockQuantity int64
 	// Category of the part.

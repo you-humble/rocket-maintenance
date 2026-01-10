@@ -88,8 +88,8 @@ type Part struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Detailed description of the part.
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	// Unit price of the part.
-	Price float64 `protobuf:"fixed64,4,opt,name=price,proto3" json:"price,omitempty"`
+	// Unit price of the part in cents.
+	PriceCents int64 `protobuf:"varint,4,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
 	// Quantity of this part currently available in stock.
 	StockQuantity int64 `protobuf:"varint,5,opt,name=stock_quantity,json=stockQuantity,proto3" json:"stock_quantity,omitempty"`
 	// Category of the part.
@@ -162,9 +162,9 @@ func (x *Part) GetDescription() string {
 	return ""
 }
 
-func (x *Part) GetPrice() float64 {
+func (x *Part) GetPriceCents() int64 {
 	if x != nil {
-		return x.Price
+		return x.PriceCents
 	}
 	return 0
 }
@@ -767,12 +767,13 @@ var File_inventory_v1_inventory_proto protoreflect.FileDescriptor
 
 const file_inventory_v1_inventory_proto_rawDesc = "" +
 	"\n" +
-	"\x1cinventory/v1/inventory.proto\x12\finventory.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd5\x04\n" +
+	"\x1cinventory/v1/inventory.proto\x12\finventory.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe0\x04\n" +
 	"\x04Part\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x14\n" +
-	"\x05price\x18\x04 \x01(\x01R\x05price\x12%\n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1f\n" +
+	"\vprice_cents\x18\x04 \x01(\x03R\n" +
+	"priceCents\x12%\n" +
 	"\x0estock_quantity\x18\x05 \x01(\x03R\rstockQuantity\x122\n" +
 	"\bcategory\x18\x06 \x01(\x0e2\x16.inventory.v1.CategoryR\bcategory\x128\n" +
 	"\n" +

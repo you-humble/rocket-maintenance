@@ -1,0 +1,15 @@
+services:
+  payment:
+    container_name: payment
+    build:
+      context: ../../../
+      dockerfile: payment/cmd/payment/Dockerfile
+    ports:
+      - "50052:50052"
+    networks:
+      - microservices-net
+
+networks:
+  microservices-net:
+    external: true
+

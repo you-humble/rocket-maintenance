@@ -8,6 +8,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -20,6 +24,7 @@ import (
 
 type Config struct {
 	GRPCAddr string
+	MongoDSN string
 }
 
 func Run(ctx context.Context, cfg Config) error {
@@ -36,10 +41,34 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 	}()
 
-	repo, err := repository.NewPartRepository(ctx)
+	mongoClient, err := mongo.Connect(
+		options.Client().ApplyURI(cfg.MongoDSN),
+	)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if merr := mongoClient.Disconnect(ctx); merr != nil {
+			log.Printf("%s: failed to disconnect mongo client: %v\n", op, merr)
+		}
+	}()
+
+	if err := mongoClient.Ping(ctx, readpref.Primary()); err != nil {
+		log.Printf("failed to ping database: %v\n", err)
+		return err
+	}
+
+	collection := mongoClient.Database("inventory-service").Collection("parts")
+	if err := EnsurePartIndexes(ctx, collection); err != nil {
+		return err
+	}
+
+	repo := repository.NewPartRepository(collection)
+
+	if err := repository.PartsBootstrap(ctx, repo); err != nil {
+		return err
+	}
+
 	svc := service.NewInventoryService(repo)
 	handler := transport.NewInventoryHandler(svc)
 
@@ -74,4 +103,15 @@ func Run(ctx context.Context, cfg Config) error {
 	s.GracefulStop()
 	log.Println("✅ Server stopped")
 	return nil
+}
+
+func EnsurePartIndexes(ctx context.Context, coll *mongo.Collection) error {
+	_, err := coll.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "name", Value: 1}}},
+		{Keys: bson.D{{Key: "category", Value: 1}}},
+		{Keys: bson.D{{Key: "manufacturer.country_norm", Value: 1}}},
+		{Keys: bson.D{{Key: "tags", Value: 1}}},
+	}, options.CreateIndexes())
+
+	return err
 }
