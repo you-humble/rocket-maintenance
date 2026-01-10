@@ -11,11 +11,6 @@ import (
 	"github.com/you-humble/rocket-maintenance/order/internal/model"
 )
 
-const (
-	writeDBTimeout = 5 * time.Second
-	readDBTimeout  = 3 * time.Second
-)
-
 type OrderRepository interface {
 	Create(ctx context.Context, ord *model.Order) (uuid.UUID, error)
 	OrderByID(ctx context.Context, id uuid.UUID) (*model.Order, error)
@@ -31,20 +26,26 @@ type PaymentClient interface {
 }
 
 type service struct {
-	repo      OrderRepository
-	inventory InventoryClient
-	payment   PaymentClient
+	repo           OrderRepository
+	inventory      InventoryClient
+	payment        PaymentClient
+	readDBTimeout  time.Duration
+	writeDBTimeout time.Duration
 }
 
 func NewOrderService(
 	repository OrderRepository,
 	inventory InventoryClient,
 	payment PaymentClient,
+	readDBTimeout time.Duration,
+	writeDBTimeout time.Duration,
 ) *service {
 	return &service{
-		repo:      repository,
-		inventory: inventory,
-		payment:   payment,
+		repo:           repository,
+		inventory:      inventory,
+		payment:        payment,
+		readDBTimeout:  readDBTimeout,
+		writeDBTimeout: writeDBTimeout,
 	}
 }
 
@@ -90,7 +91,7 @@ func (svc *service) Create(
 		return nil, fmt.Errorf("%s: %w %v", op, model.ErrPartsOutOfStock, endedParts)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, writeDBTimeout)
+	ctx, cancel := context.WithTimeout(ctx, svc.writeDBTimeout)
 	defer cancel()
 
 	ordID, err := svc.repo.Create(ctx, &model.Order{
@@ -112,7 +113,7 @@ func (svc *service) Pay(
 ) (*model.PayOrderResult, error) {
 	const op string = "order.service.Pay"
 
-	rdbCtx, rdbCancel := context.WithTimeout(ctx, readDBTimeout)
+	rdbCtx, rdbCancel := context.WithTimeout(ctx, svc.readDBTimeout)
 	defer rdbCancel()
 
 	ord, err := svc.repo.OrderByID(rdbCtx, params.ID)
@@ -142,7 +143,7 @@ func (svc *service) Pay(
 	ord.PaymentMethod = &params.PaymentMethod
 	ord.Status = model.StatusPaid
 
-	wdbCtx, wdbCancel := context.WithTimeout(ctx, writeDBTimeout)
+	wdbCtx, wdbCancel := context.WithTimeout(ctx, svc.writeDBTimeout)
 	defer wdbCancel()
 
 	if err := svc.repo.Update(wdbCtx, ord); err != nil {
@@ -153,7 +154,7 @@ func (svc *service) Pay(
 }
 
 func (svc *service) OrderByID(ctx context.Context, ordID uuid.UUID) (*model.Order, error) {
-	ctx, cancel := context.WithTimeout(ctx, readDBTimeout)
+	ctx, cancel := context.WithTimeout(ctx, svc.readDBTimeout)
 	defer cancel()
 
 	return svc.repo.OrderByID(ctx, ordID)
@@ -162,7 +163,7 @@ func (svc *service) OrderByID(ctx context.Context, ordID uuid.UUID) (*model.Orde
 func (svc *service) Cancel(ctx context.Context, ordID uuid.UUID) error {
 	const op string = "order.service.Cancel"
 
-	rdbCtx, rdbCancel := context.WithTimeout(ctx, readDBTimeout)
+	rdbCtx, rdbCancel := context.WithTimeout(ctx, svc.readDBTimeout)
 	defer rdbCancel()
 
 	ord, err := svc.repo.OrderByID(rdbCtx, ordID)
@@ -174,7 +175,7 @@ func (svc *service) Cancel(ctx context.Context, ordID uuid.UUID) error {
 	case model.StatusPendingPayment:
 		ord.Status = model.StatusCancelled
 
-		wdbCtx, wdbCancel := context.WithTimeout(ctx, writeDBTimeout)
+		wdbCtx, wdbCancel := context.WithTimeout(ctx, svc.writeDBTimeout)
 		defer wdbCancel()
 
 		if err := svc.repo.Update(wdbCtx, ord); err != nil {

@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -19,6 +18,7 @@ import (
 
 	invclient "github.com/you-humble/rocket-maintenance/order/internal/client/grpc/inventory/v1"
 	pmtclient "github.com/you-humble/rocket-maintenance/order/internal/client/grpc/payment/v1"
+	"github.com/you-humble/rocket-maintenance/order/internal/config"
 	"github.com/you-humble/rocket-maintenance/order/internal/migrator"
 	repository "github.com/you-humble/rocket-maintenance/order/internal/repository/order"
 	service "github.com/you-humble/rocket-maintenance/order/internal/service/order"
@@ -28,24 +28,19 @@ import (
 	paymentpbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/payment/v1"
 )
 
-const (
-	httpAddr          = "0.0.0.0:8080"
-	inventoryGRPCAddr = "inventory:50051"
-	paymentGRPCAddr   = "payment:50052"
-	readHeaderTimeout = 5 * time.Second
-	shutdownTimeout   = 10 * time.Second
-	pgDSN             = "postgres://order-service-user:order-service-password@postgres-order:5432/order-service?sslmode=disable"
-	migrationsDir     = "./migrations"
-)
-
 func main() {
+	if err := config.Load(); err != nil {
+		log.Fatal(err)
+	}
+	cfg := config.C()
+
 	// Inventory
 	invConn, err := grpc.NewClient(
-		inventoryGRPCAddr,
+		cfg.Inventory.Address(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		log.Printf("failed to connect to inventory service %s: %v\n", inventoryGRPCAddr, err)
+		log.Printf("failed to connect to inventory service %s: %v\n", cfg.Inventory.Address(), err)
 		return
 	}
 	defer func() {
@@ -59,11 +54,11 @@ func main() {
 
 	// Payment
 	payConn, err := grpc.NewClient(
-		paymentGRPCAddr,
+		cfg.Payment.Address(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		log.Printf("failed to connect to payment service %s: %v\n", paymentGRPCAddr, err)
+		log.Printf("failed to connect to payment service %s: %v\n", cfg.Payment.Address(), err)
 		return
 	}
 	defer func() {
@@ -79,7 +74,7 @@ func main() {
 	defer cancel()
 
 	// DB pool
-	pool, err := pgxpool.New(ctx, pgDSN)
+	pool, err := pgxpool.New(ctx, cfg.Postgres.DSN())
 	if err != nil {
 		log.Printf("failed to create pg pool: %v\n", err)
 		return
@@ -92,7 +87,10 @@ func main() {
 	}
 
 	// Migrations
-	m := migrator.NewMigrator(stdlib.OpenDBFromPool(pool), migrationsDir)
+	m := migrator.NewMigrator(
+		stdlib.OpenDBFromPool(pool),
+		cfg.Postgres.MigrationDirectory(),
+	)
 	defer func() {
 		if cerr := m.Close(); cerr != nil {
 			log.Printf("failed to close migrator db: %v\n", cerr)
@@ -111,7 +109,13 @@ func main() {
 	}
 
 	repo := repository.NewOrderRepository(pool)
-	service := service.NewOrderService(repo, inventoryClient, paymentClient)
+	service := service.NewOrderService(
+		repo,
+		inventoryClient,
+		paymentClient,
+		cfg.Server.BDEReadTimeout(),
+		cfg.Server.DBWriteTimeout(),
+	)
 
 	handler := thttp.NewOrderHandler(service)
 
@@ -131,13 +135,13 @@ func main() {
 	r.Mount("/", orderServer)
 
 	server := &http.Server{
-		Addr:              httpAddr,
+		Addr:              cfg.Server.Address(),
 		Handler:           r,
-		ReadHeaderTimeout: readHeaderTimeout,
+		ReadHeaderTimeout: cfg.Server.ReadTimeout(),
 	}
 
 	go func() {
-		log.Printf("🚀 order server listening on %s", httpAddr)
+		log.Printf("🚀 order server listening on %s", cfg.Server.Address())
 		err := server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Printf("❌ order server error: %v\n", err)
@@ -150,7 +154,7 @@ func main() {
 
 	log.Println("🛑 Server shutdown...")
 
-	sdCtx, sdCancel := context.WithTimeout(ctx, shutdownTimeout)
+	sdCtx, sdCancel := context.WithTimeout(ctx, cfg.Server.ShutdownTimeout())
 	defer sdCancel()
 
 	if err := server.Shutdown(sdCtx); err != nil {
