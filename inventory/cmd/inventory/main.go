@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"log"
+	"os/signal"
+	"syscall"
 
 	"github.com/you-humble/rocket-maintenance/inventory/internal/app"
-	"github.com/you-humble/rocket-maintenance/inventory/internal/config"
+	"github.com/you-humble/rocket-maintenance/platform/logger"
 )
 
 const (
@@ -14,14 +15,22 @@ const (
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, quit := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT, syscall.SIGTERM,
+	)
+	defer quit()
 
-	if err := config.Load(); err != nil {
-		log.Fatal(err)
+	a, err := app.New(ctx)
+	if err != nil {
+		logger.Error(ctx,
+			"❌ Failed to create an application",
+			logger.ErrorF(err),
+		)
+		return
 	}
-	cfg := config.C()
 
-	if err := app.Run(ctx, cfg.Server, cfg.Mongo); err != nil {
-		log.Fatalf("❌😵‍💫 inventory server stopped with error: %v", err)
+	if err := a.Run(ctx); err != nil {
+		logger.Error(ctx, "❌ Inventory server error", logger.ErrorF(err))
 	}
 }

@@ -2,23 +2,32 @@ package main
 
 import (
 	"context"
-	"log"
+	"os/signal"
+	"syscall"
 
 	"github.com/you-humble/rocket-maintenance/payment/internal/app"
-	"github.com/you-humble/rocket-maintenance/payment/internal/config"
+	"github.com/you-humble/rocket-maintenance/platform/logger"
 )
 
 const GRPCAddr = "0.0.0.0:50052"
 
 func main() {
-	ctx := context.Background()
+	ctx, quit := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT, syscall.SIGTERM,
+	)
+	defer quit()
 
-	if err := config.Load(); err != nil {
-		log.Fatal(err)
+	a, err := app.New(ctx)
+	if err != nil {
+		logger.Error(ctx,
+			"❌ Failed to create an application",
+			logger.ErrorF(err),
+		)
+		return
 	}
-	cfg := config.C()
 
-	if err := app.Run(ctx, cfg.Server); err != nil {
-		log.Fatalf("❌😵‍💫 payment server stopped with error: %v", err)
+	if err := a.Run(ctx); err != nil {
+		logger.Error(ctx, "❌ Payment server error", logger.ErrorF(err))
 	}
 }

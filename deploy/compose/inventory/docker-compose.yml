@@ -11,9 +11,14 @@ services:
       - .env
     ports:
       - "${GRPC_PORT}:${GRPC_PORT}"
+    healthcheck:
+      test: ["CMD", "grpcurl", "-plaintext", "${GRPC_HOST}:${GRPC_PORT}", "grpc.health.v1.Health/Check"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
     networks:
       - microservices-net
-
 
   mongo-inventory:
     image: ${MONGO_IMAGE_NAME}

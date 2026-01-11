@@ -4,6 +4,7 @@ WORKDIR /src
 
 COPY order/go.mod order/go.sum ./order/
 COPY shared/go.mod shared/go.sum ./shared/
+COPY platform/go.mod platform/go.sum ./platform/
 
 WORKDIR /src/order
 RUN go mod download
@@ -11,6 +12,7 @@ RUN go mod download
 WORKDIR /src
 COPY order ./order
 COPY shared ./shared
+COPY platform ./platform
 
 WORKDIR /src/order
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \

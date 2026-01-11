@@ -2,71 +2,133 @@ package app
 
 import (
 	"context"
-	"log"
+	"errors"
 	"net"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 
 	"github.com/you-humble/rocket-maintenance/payment/internal/config"
-	service "github.com/you-humble/rocket-maintenance/payment/internal/service/payment"
-	"github.com/you-humble/rocket-maintenance/payment/internal/transport/grpc/interceptors"
-	transport "github.com/you-humble/rocket-maintenance/payment/internal/transport/grpc/payment/v1"
-	paymentpbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/payment/v1"
+	"github.com/you-humble/rocket-maintenance/platform/closer"
+	"github.com/you-humble/rocket-maintenance/platform/logger"
 )
 
-func Run(ctx context.Context, srvCfg config.Server) error {
-	const op string = "payment"
+type app struct {
+	di       *di
+	listener net.Listener
+	server   *grpc.Server
+}
 
-	lis, err := net.Listen("tcp", srvCfg.Address())
+func New(ctx context.Context) (*app, error) {
+	a := &app{}
+
+	if err := a.init(ctx); err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}
+
+func (a *app) Run(ctx context.Context) error { return a.run(ctx) }
+
+func (a *app) init(ctx context.Context) error {
+	inits := []func(context.Context) error{
+		a.initConfig,
+		a.initLogger,
+		a.initCloser,
+		a.initDI,
+		a.initListener,
+		a.initServer,
+	}
+
+	for _, initFn := range inits {
+		if err := initFn(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *app) initConfig(_ context.Context) error {
+	return config.Load()
+}
+
+func (a *app) initLogger(_ context.Context) error {
+	return logger.Init(
+		config.C().Logger.Level(),
+		config.C().Logger.AsJSON(),
+	)
+}
+
+func (a *app) initCloser(_ context.Context) error {
+	closer.SetLogger(logger.L())
+	return nil
+}
+
+func (a *app) initDI(_ context.Context) error {
+	a.di = NewDI()
+	return nil
+}
+
+func (a *app) initListener(ctx context.Context) error {
+	lis, err := net.Listen("tcp", config.C().Server.Address())
 	if err != nil {
-		log.Printf("%s: failed to listen: %v\n", op, err)
+		logger.Error(ctx, "failed to listen", logger.ErrorF(err))
 		return err
 	}
-	defer func() {
-		if cerr := lis.Close(); cerr != nil {
-			log.Printf("%s: failed to close listener: %v\n", op, cerr)
-		}
-	}()
+	closer.AddNamed("TCP listener",
+		func(ctx context.Context) error {
+			lerr := lis.Close()
+			if lerr != nil && !errors.Is(lerr, net.ErrClosed) {
+				return lerr
+			}
+			return nil
+		})
 
-	svc := service.NewPaymentService()
-	handler := transport.NewPaymentHandler(svc)
+	a.listener = lis
+	return nil
+}
 
-	s := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			interceptors.UnaryLogging(),
-			interceptors.RejectNilRequest(),
-		),
-	)
-	paymentpbv1.RegisterPaymentServiceServer(s, handler)
+func (a *app) initServer(ctx context.Context) error {
+	a.server = a.di.Server(ctx)
+	return nil
+}
 
-	reflection.Register(s)
+func (a *app) run(ctx context.Context) error {
+	defer gracefulShutdown(ctx, a.server)
 
-	errCh := make(chan error, 1)
+	errCh := make(chan error)
+
 	go func() {
-		log.Printf("🚀 gRPC server listening on %s\n", srvCfg.Address())
-		if err := s.Serve(lis); err != nil {
-			errCh <- err
+		defer close(errCh)
+
+		logger.Info(ctx,
+			"🚀 order server listening",
+			logger.String("address", config.C().Server.Address()),
+		)
+		err := a.server.Serve(a.listener)
+		if err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			select {
+			case <-ctx.Done():
+			case errCh <- err:
+			}
 		}
 	}()
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
 	case <-ctx.Done():
-		log.Println("🛑 context cancelled, stopping gRPC server")
-	case sig := <-quit:
-		log.Printf("🛑 received signal %s, stopping gRPC server", sig)
-	case err := <-errCh:
-		log.Printf("❌ gRPC server error: %v", err)
+		logger.Error(ctx, "🛑 server context cancelled", logger.ErrorF(ctx.Err()))
+		return ctx.Err()
+	case err, ok := <-errCh:
+		if !ok {
+			return nil
+		}
+		return err
 	}
+}
 
-	log.Println("🛑 Shutting down gRPC server...")
+//nolint:contextcheck
+func gracefulShutdown(ctx context.Context, s *grpc.Server) {
+	logger.Info(ctx, "🛑 Shutting down gRPC server...")
 	s.GracefulStop()
-	log.Println("✅ Server stopped")
-	return nil
+	logger.Info(ctx, "✅ Server stopped")
 }
