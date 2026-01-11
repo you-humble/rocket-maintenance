@@ -2,7 +2,6 @@ package invclient
 
 import (
 	"context"
-	"log"
 
 	"github.com/you-humble/rocket-maintenance/order/internal/client/converter"
 	"github.com/you-humble/rocket-maintenance/order/internal/model"
@@ -22,7 +21,6 @@ func (c *client) ListParts(ctx context.Context, filter model.PartsFilter) ([]mod
 		Filter: converter.PartsFilterToPB(filter),
 	})
 	if err != nil {
-		log.Println("ERROR: inventory.ListParts:", err)
 		return nil, err
 	}
 

@@ -34,3 +34,20 @@ func (p PayOrderParams) Validate() error {
 type PayOrderResult struct {
 	TransactionUUID string
 }
+
+func (m Method) String() string {
+	switch m {
+	case MethodUnknown:
+		return "METHOD_UNKNOWN"
+	case MethodCard:
+		return "METHOD_	CARD"
+	case MethodSBP:
+		return "METHOD_SBP"
+	case MethodCreditCard:
+		return "METHOD_CREDIT_CARD"
+	case MethodInvestorMoney:
+		return "METHOD_INVESTOR_MONEY"
+	default:
+		return "METHOD_UNKNOWN"
+	}
+}

@@ -47,7 +47,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ogen-go/ogen v1.18.0 // indirect
-	github.com/pressly/goose/v3 v3.26.0
+	github.com/pressly/goose/v3 v3.26.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

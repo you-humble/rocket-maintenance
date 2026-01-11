@@ -9,6 +9,7 @@ import (
 
 	"github.com/you-humble/rocket-maintenance/payment/internal/converter"
 	"github.com/you-humble/rocket-maintenance/payment/internal/model"
+	"github.com/you-humble/rocket-maintenance/platform/logger"
 	paymentpbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/payment/v1"
 )
 
@@ -28,11 +29,13 @@ func NewPaymentHandler(service PaymentService) *handler {
 func (h *handler) PayOrder(ctx context.Context, req *paymentpbv1.PayOrderRequest) (*paymentpbv1.PayOrderResponse, error) {
 	cmd, err := converter.PayOrderParamsFromPB(req)
 	if err != nil {
+		logger.Error(ctx, "pay-order params from proto", logger.ErrorF(err))
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	res, err := h.svc.PayOrder(ctx, cmd)
 	if err != nil {
+		logger.Error(ctx, "pay-order", logger.ErrorF(err))
 		return nil, mapError(err)
 	}
 

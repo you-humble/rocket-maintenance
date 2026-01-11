@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"errors"
-	"log"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -57,7 +56,6 @@ func (h *handler) ListParts(
 }
 
 func mapError(err error) error {
-	log.Println(err)
 	switch {
 	case errors.Is(err, model.ErrInvalidArgument):
 		return status.Error(codes.InvalidArgument, "invalid argument")
