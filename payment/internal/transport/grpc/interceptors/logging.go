@@ -2,12 +2,13 @@ package interceptors
 
 import (
 	"context"
-	"log"
 	"path"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
+
+	"github.com/you-humble/rocket-maintenance/platform/logger"
 )
 
 func UnaryLogging() grpc.UnaryServerInterceptor {
@@ -17,14 +18,23 @@ func UnaryLogging() grpc.UnaryServerInterceptor {
 
 		resp, err := handler(ctx, req)
 
+		log := logger.With(logger.String("method", method))
+
 		d := time.Since(start)
 		if err != nil {
 			st, _ := status.FromError(err)
-			log.Printf("grpc: method=%s code=%s dur=%s err=%v", method, st.Code(), d, err)
+			log.Error(ctx, "grpc",
+				logger.String("code", st.Code().String()),
+				logger.Duration("dur", d),
+				logger.ErrorF(err),
+			)
 			return resp, err
 		}
 
-		log.Printf("grpc: method=%s code=OK dur=%s", method, d)
+		log.Info(ctx, "grpc",
+			logger.String("code", "OK"),
+			logger.Duration("dur", d),
+		)
 		return resp, nil
 	}
 }

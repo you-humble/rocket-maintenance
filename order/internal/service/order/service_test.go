@@ -16,6 +16,11 @@ import (
 	"github.com/you-humble/rocket-maintenance/order/internal/service/mocks"
 )
 
+const (
+	dbReadTimeout  = 5 * time.Second
+	dbWriteTimeout = 5 * time.Second
+)
+
 func TestServiceCreate(t *testing.T) {
 	t.Parallel()
 
@@ -26,7 +31,13 @@ func TestServiceCreate(t *testing.T) {
 	}
 
 	newSvc := func(d deps) *service {
-		return NewOrderService(d.repository, d.inventory, d.payment)
+		return NewOrderService(
+			d.repository,
+			d.inventory,
+			d.payment,
+			dbReadTimeout,
+			dbWriteTimeout,
+		)
 	}
 
 	userID := uuid.New()
@@ -261,7 +272,13 @@ func TestServicePay(t *testing.T) {
 	}
 
 	newSvc := func(d deps) *service {
-		return NewOrderService(d.repository, d.inventory, d.payment)
+		return NewOrderService(
+			d.repository,
+			d.inventory,
+			d.payment,
+			dbReadTimeout,
+			dbWriteTimeout,
+		)
 	}
 
 	userID := uuid.New()
@@ -547,8 +564,14 @@ func TestService_OrderByID(t *testing.T) {
 		payment    *mocks.MockPaymentClient
 	}
 
-	newSVC := func(d deps) *service {
-		return NewOrderService(d.repository, d.inventory, d.payment)
+	newSvc := func(d deps) *service {
+		return NewOrderService(
+			d.repository,
+			d.inventory,
+			d.payment,
+			dbReadTimeout,
+			dbWriteTimeout,
+		)
 	}
 
 	type testCase struct {
@@ -616,7 +639,6 @@ func TestService_OrderByID(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt // capture
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -630,7 +652,7 @@ func TestService_OrderByID(t *testing.T) {
 				tt.setup(d)
 			}
 
-			svc := newSVC(d)
+			svc := newSvc(d)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
@@ -650,8 +672,14 @@ func TestServiceCancel(t *testing.T) {
 		payment    *mocks.MockPaymentClient
 	}
 
-	newSVC := func(d deps) *service {
-		return NewOrderService(d.repository, d.inventory, d.payment)
+	newSvc := func(d deps) *service {
+		return NewOrderService(
+			d.repository,
+			d.inventory,
+			d.payment,
+			dbReadTimeout,
+			dbWriteTimeout,
+		)
 	}
 
 	type testCase struct {
@@ -785,7 +813,7 @@ func TestServiceCancel(t *testing.T) {
 				tt.setup(d)
 			}
 
-			svc := newSVC(d)
+			svc := newSvc(d)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()

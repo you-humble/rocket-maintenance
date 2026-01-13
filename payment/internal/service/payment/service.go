@@ -2,11 +2,12 @@ package service
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/google/uuid"
 
 	"github.com/you-humble/rocket-maintenance/payment/internal/model"
+	"github.com/you-humble/rocket-maintenance/platform/logger"
 )
 
 type service struct{}
@@ -16,16 +17,20 @@ func NewPaymentService() *service {
 }
 
 func (s *service) PayOrder(ctx context.Context, params model.PayOrderParams) (*model.PayOrderResult, error) {
+	const op = "payment.service.PayOrder"
+	log := logger.With(
+		logger.String("order_id", params.OrderID),
+		logger.String("user_id", params.UserID),
+		logger.String("payment_method", params.Method.String()),
+	)
+
 	if err := params.Validate(); err != nil {
-		return nil, err
+		log.Error(ctx, "validation failed", logger.ErrorF(err))
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	txID := uuid.NewString()
 
-	log.Printf(
-		"payment succeeded, transaction_uuid=%s order_uuid=%s user_uuid=%s method=%d",
-		txID, params.OrderID, params.UserID, params.Method,
-	)
-
+	log.Info(ctx, "payment succeeded", logger.String("transaction_id", txID))
 	return &model.PayOrderResult{TransactionUUID: txID}, nil
 }

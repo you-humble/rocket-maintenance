@@ -2,116 +2,144 @@ package app
 
 import (
 	"context"
-	"log"
+	"errors"
 	"net"
-	"os"
-	"os/signal"
-	"syscall"
 
-	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
-	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 
+	"github.com/you-humble/rocket-maintenance/inventory/internal/config"
 	repository "github.com/you-humble/rocket-maintenance/inventory/internal/repository/part"
-	service "github.com/you-humble/rocket-maintenance/inventory/internal/service/part"
-	"github.com/you-humble/rocket-maintenance/inventory/internal/transport/grpc/interceptors"
-	transport "github.com/you-humble/rocket-maintenance/inventory/internal/transport/grpc/inventory/v1"
-	inventorypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1"
+	"github.com/you-humble/rocket-maintenance/platform/closer"
+	"github.com/you-humble/rocket-maintenance/platform/logger"
 )
 
-type Config struct {
-	GRPCAddr string
-	MongoDSN string
+type app struct {
+	di       *di
+	listener net.Listener
+	server   *grpc.Server
 }
 
-func Run(ctx context.Context, cfg Config) error {
-	const op string = "inventory"
+func New(ctx context.Context) (*app, error) {
+	a := &app{}
 
-	lis, err := net.Listen("tcp", cfg.GRPCAddr)
-	if err != nil {
-		log.Printf("%s: failed to listen: %v\n", op, err)
-		return err
+	if err := a.init(ctx); err != nil {
+		return nil, err
 	}
-	defer func() {
-		if cerr := lis.Close(); cerr != nil {
-			log.Printf("%s: failed to close listener: %v\n", op, cerr)
+
+	return a, nil
+}
+
+func (a *app) Run(ctx context.Context) error { return a.run(ctx) }
+
+func (a *app) init(ctx context.Context) error {
+	inits := []func(context.Context) error{
+		a.initConfig,
+		a.initLogger,
+		a.initCloser,
+		a.initDI,
+		a.initListener,
+		a.initServer,
+		a.initPartsData,
+	}
+
+	for _, initFn := range inits {
+		if err := initFn(ctx); err != nil {
+			return err
 		}
-	}()
-
-	mongoClient, err := mongo.Connect(
-		options.Client().ApplyURI(cfg.MongoDSN),
-	)
-	if err != nil {
-		return err
 	}
-	defer func() {
-		if merr := mongoClient.Disconnect(ctx); merr != nil {
-			log.Printf("%s: failed to disconnect mongo client: %v\n", op, merr)
-		}
-	}()
-
-	if err := mongoClient.Ping(ctx, readpref.Primary()); err != nil {
-		log.Printf("failed to ping database: %v\n", err)
-		return err
-	}
-
-	collection := mongoClient.Database("inventory-service").Collection("parts")
-	if err := EnsurePartIndexes(ctx, collection); err != nil {
-		return err
-	}
-
-	repo := repository.NewPartRepository(collection)
-
-	if err := repository.PartsBootstrap(ctx, repo); err != nil {
-		return err
-	}
-
-	svc := service.NewInventoryService(repo)
-	handler := transport.NewInventoryHandler(svc)
-
-	s := grpc.NewServer(
-		grpc.UnaryInterceptor(interceptors.UnaryLogging()),
-	)
-	inventorypbv1.RegisterInventoryServiceServer(s, handler)
-
-	reflection.Register(s)
-
-	errCh := make(chan error, 1)
-	go func() {
-		log.Printf("🚀 gRPC server listening on %s\n", cfg.GRPCAddr)
-		if err := s.Serve(lis); err != nil {
-			errCh <- err
-		}
-	}()
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case <-ctx.Done():
-		log.Println("🛑 context cancelled, stopping gRPC server")
-	case sig := <-quit:
-		log.Printf("🛑 received signal %s, stopping gRPC server", sig)
-	case err := <-errCh:
-		log.Printf("❌ gRPC server error: %v", err)
-	}
-
-	log.Println("🛑 Shutting down gRPC server...")
-	s.GracefulStop()
-	log.Println("✅ Server stopped")
 	return nil
 }
 
-func EnsurePartIndexes(ctx context.Context, coll *mongo.Collection) error {
-	_, err := coll.Indexes().CreateMany(ctx, []mongo.IndexModel{
-		{Keys: bson.D{{Key: "name", Value: 1}}},
-		{Keys: bson.D{{Key: "category", Value: 1}}},
-		{Keys: bson.D{{Key: "manufacturer.country_norm", Value: 1}}},
-		{Keys: bson.D{{Key: "tags", Value: 1}}},
-	}, options.CreateIndexes())
+func (a *app) initConfig(_ context.Context) error {
+	return config.Load()
+}
 
-	return err
+func (a *app) initLogger(_ context.Context) error {
+	return logger.Init(
+		config.C().Logger.Level(),
+		config.C().Logger.AsJSON(),
+	)
+}
+
+func (a *app) initCloser(_ context.Context) error {
+	closer.SetLogger(logger.L())
+	return nil
+}
+
+func (a *app) initDI(_ context.Context) error {
+	a.di = NewDI()
+	return nil
+}
+
+func (a *app) initPartsData(ctx context.Context) error {
+	err := repository.PartsBootstrap(ctx, a.di.PartsRepository(ctx))
+	if err != nil {
+		logger.Error(ctx, "failed to bootstrap", logger.ErrorF(err))
+		return err
+	}
+	return nil
+}
+
+func (a *app) initListener(ctx context.Context) error {
+	lis, err := net.Listen("tcp", config.C().Server.Address())
+	if err != nil {
+		logger.Error(ctx, "failed to listen", logger.ErrorF(err))
+		return err
+	}
+	closer.AddNamed("TCP listener",
+		func(ctx context.Context) error {
+			lerr := lis.Close()
+			if lerr != nil && !errors.Is(lerr, net.ErrClosed) {
+				return lerr
+			}
+			return nil
+		})
+
+	a.listener = lis
+	return nil
+}
+
+func (a *app) initServer(ctx context.Context) error {
+	a.server = a.di.Server(ctx)
+	return nil
+}
+
+func (a *app) run(ctx context.Context) error {
+	defer gracefulShutdown(ctx, a.server)
+
+	errCh := make(chan error)
+
+	go func() {
+		defer close(errCh)
+
+		logger.Info(ctx,
+			"🚀 order server listening",
+			logger.String("address", config.C().Server.Address()),
+		)
+		err := a.server.Serve(a.listener)
+		if err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			select {
+			case <-ctx.Done():
+			case errCh <- err:
+			}
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		logger.Error(ctx, "🛑 server context cancelled", logger.ErrorF(ctx.Err()))
+		return ctx.Err()
+	case err, ok := <-errCh:
+		if !ok {
+			return nil
+		}
+		return err
+	}
+}
+
+//nolint:contextcheck
+func gracefulShutdown(ctx context.Context, s *grpc.Server) {
+	logger.Info(ctx, "🛑 Shutting down gRPC server...")
+	s.GracefulStop()
+	logger.Info(ctx, "✅ Server stopped")
 }

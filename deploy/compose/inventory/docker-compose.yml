@@ -7,30 +7,33 @@ services:
     depends_on:
       mongo-inventory:
         condition: service_healthy
-    environment:
-      MONGO_URI: mongodb://inventory-service-user:inventory-service-password@mongo-inventory:27017/inventory-service?authSource=admin
+    env_file:
+      - .env
     ports:
-      - "50051:50051"
+      - "${GRPC_PORT}:${GRPC_PORT}"
+    healthcheck:
+      test: ["CMD", "grpcurl", "-plaintext", "${GRPC_HOST}:${GRPC_PORT}", "grpc.health.v1.Health/Check"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
     networks:
       - microservices-net
 
-
   mongo-inventory:
-    image: mongo:8.2.3
-    container_name: mongo-inventory
-    environment: 
-      MONGO_INITDB_DATABASE: inventory-service 
-      MONGO_INITDB_ROOT_USERNAME: inventory-service-user 
-      MONGO_INITDB_ROOT_PASSWORD: inventory-service-password
+    image: ${MONGO_IMAGE_NAME}
+    container_name: ${MONGO_HOST}
+    env_file:
+      - .env
     volumes:
       - mongo_inventory_data:/data/db
     ports:
-      - "27017:27017"
+      - "${EXTERNAL_MONGO_PORT}:${MONGO_PORT}"
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "echo 'db.runCommand({ ping: 1 }).ok' | mongosh --quiet -u inventory-service-user -p inventory-service-password --authenticationDatabase admin",
+          "echo 'db.runCommand({ ping: 1 }).ok' | mongosh --quiet -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase ${MONGO_AUTH_DB}",
         ]
       interval: 10s
       timeout: 5s 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/samber/lo"
@@ -13,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/you-humble/rocket-maintenance/inventory/internal/model"
+	"github.com/you-humble/rocket-maintenance/platform/logger"
 )
 
 type repository struct {
@@ -47,7 +47,9 @@ func (r *repository) List(ctx context.Context, filter model.PartsFilter) ([]*mod
 	}
 	defer func() {
 		if cerr := cur.Close(ctx); err != nil {
-			log.Printf("%s failed to close cursor: %s", op, cerr)
+			logger.Error(ctx, "cursor close",
+				logger.ErrorF(fmt.Errorf("%s failed to close cursor: %w", op, cerr)),
+			)
 			return
 		}
 	}()
