@@ -17,9 +17,6 @@ import (
 	"github.com/samber/lo"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	tcnetwork "github.com/you-humble/rocket-maintenance/platform/testcontainers/network"
-	"github.com/you-humble/rocket-maintenance/platform/testcontainers/path"
-	inventorypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -29,6 +26,10 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	tcnetwork "github.com/you-humble/rocket-maintenance/platform/testcontainers/network"
+	"github.com/you-humble/rocket-maintenance/platform/testcontainers/path"
+	inventorypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/inventory/v1"
 )
 
 // ```bash

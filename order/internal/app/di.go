@@ -164,7 +164,6 @@ func (d *di) OrderHandler(ctx context.Context) orderv1.Handler {
 func (d *di) Router(_ context.Context) *chi.Mux {
 	if d.router == nil {
 		d.router = chi.NewRouter()
-
 	}
 
 	return d.router
