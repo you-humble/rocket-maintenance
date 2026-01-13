@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/you-humble/rocket-maintenance/order/internal/config"
+	"github.com/you-humble/rocket-maintenance/order/internal/transport/http/health"
 	"github.com/you-humble/rocket-maintenance/platform/closer"
 	"github.com/you-humble/rocket-maintenance/platform/logger"
 	orderv1 "github.com/you-humble/rocket-maintenance/shared/pkg/openapi/order/v1"
@@ -92,6 +93,8 @@ func (a *app) initServer(ctx context.Context) error {
 		middleware.Logger,
 	)
 	r.Mount("/", orderServer)
+
+	r.HandleFunc("/health", health.HealthCheck)
 
 	a.server = &http.Server{
 		Addr:              cfg.Server.Address(),

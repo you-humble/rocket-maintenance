@@ -585,13 +585,15 @@ tasks:
     summary: |
       Запускает юнит-тесты для указанных модулей проекта.
       Можно указать конкретные модули через переменную MODULES.
+      Исключаются интеграционные тесты в директориях integration и tests/integration.
+      Также исключаются тесты с тегом "integration".
     cmds:
       - |
         ERR=0
         for mod in {{.MODULES}}; do
           if [ -d "$mod" ]; then
-            echo "🧪 Тестируем модуль $mod"
-            go test -v ./$mod/... || ERR=1
+            echo "🧪 Тестируем модуль $mod (только юнит-тесты)"
+            go test -v -tags="!integration" $(go list ./$mod/... | grep -v -E '(/integration|/tests/integration|/integrationtests)') || ERR=1
           fi
         done
         exit $ERR
@@ -612,6 +614,7 @@ tasks:
 
   up-inventory:
     desc: Поднять Inventory сервис и все его зависимости
+    deps: [up-core]
     dir: deploy/compose/inventory
     cmds:
       - echo "[task] 📦 Поднимаем Inventory с зависимостями"
@@ -626,6 +629,7 @@ tasks:
 
   up-order:
     desc: Поднять Order сервис и все его зависимости
+    deps: [up-core]
     dir: deploy/compose/order
     cmds:
       - echo "[task] 📦 Поднимаем Order с зависимостями"
@@ -640,6 +644,7 @@ tasks:
 
   up-payment:
     desc: Поднять Payment сервис и все его зависимости
+    deps: [up-core]
     dir: deploy/compose/payment
     cmds:
       - echo "[task] 📦 Поднимаем Payment с зависимостями"
@@ -789,10 +794,10 @@ tasks:
             if [ "$HAS_TESTS" -eq 0 ]; then
               echo "⚠️ Модуль $mod не содержит интеграционных тестов (с тегом integration), пропускаем"
               continue
+            else
+              echo "▶️ Запуск интеграционных тестов для $mod"
+              go test -v -tags=integration ./$mod/tests/... || ERR=1
             fi
-            
-            echo "▶️ Запуск интеграционных тестов для $mod"
-            go test -v -tags=integration ./$mod/... || ERR=1
           fi
         done
         exit $ERR

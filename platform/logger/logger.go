@@ -27,7 +27,6 @@ type logger struct {
 	zapLogger *zap.Logger
 }
 
-// Init инициализирует глобальный логгер.
 func Init(levelStr string, asJSON bool) error {
 	initOnce.Do(func() {
 		dynamicLevel = zap.NewAtomicLevelAt(parseLevel(levelStr))

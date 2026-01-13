@@ -13,6 +13,12 @@ services:
       - "${HTTP_PORT}:${HTTP_PORT}"
     volumes:
       - ../../../order/migrations:/app/migrations:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://${HTTP_HOST}:${HTTP_PORT}/health | grep -q SERVING"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 10s
     networks:
       - microservices-net
 

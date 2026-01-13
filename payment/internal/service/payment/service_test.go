@@ -12,7 +12,7 @@ import (
 	"github.com/you-humble/rocket-maintenance/payment/internal/model"
 )
 
-func TestService_PayOrder(t *testing.T) {
+func TestServicePayOrder(t *testing.T) {
 	log.SetOutput(os.Stdout)
 
 	sut := &service{}
@@ -51,7 +51,7 @@ func TestService_PayOrder(t *testing.T) {
 				Method:  model.MethodCard,
 			},
 			wantErr:    true,
-			wantErrMsg: "order_id is required",
+			wantErrMsg: "payment.service.PayOrder: order_id is required",
 			checkResult: func(t *testing.T, res *model.PayOrderResult) {
 				require.Nil(t, res)
 			},
@@ -64,7 +64,7 @@ func TestService_PayOrder(t *testing.T) {
 				Method:  model.MethodCard,
 			},
 			wantErr:    true,
-			wantErrMsg: "user_id is required",
+			wantErrMsg: "payment.service.PayOrder: user_id is required",
 			checkResult: func(t *testing.T, res *model.PayOrderResult) {
 				require.Nil(t, res)
 			},
@@ -77,7 +77,7 @@ func TestService_PayOrder(t *testing.T) {
 				Method:  model.MethodUnknown,
 			},
 			wantErr:    true,
-			wantErrMsg: "payment_method is unknown",
+			wantErrMsg: "payment.service.PayOrder: payment_method is unknown",
 			checkResult: func(t *testing.T, res *model.PayOrderResult) {
 				require.Nil(t, res)
 			},
