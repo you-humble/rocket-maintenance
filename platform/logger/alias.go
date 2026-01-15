@@ -18,6 +18,7 @@ var (
 	Duration = zap.Duration
 	Bool     = zap.Bool
 	ErrorF   = zap.Error
+	Any      = zap.Any
 )
 
 type (

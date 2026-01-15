@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package assembly.v1;
+
+option go_package = "github.com/you-humble/rocket-maintenance/shared/pkg/proto/assembly/v1;assemblypbv1";
+
+/*
+AssemblyService Events (Kafka)
+
+This package defines Kafka event payloads used by AssemblyService, a background worker
+responsible for fulfilling orders after payment.
+
+Workflow:
+1) AssemblyService consumes the incoming event `OrderPaid` (see `PaidOrderRecord`).
+2) It simulates ship assembly for the paid order.
+3) After completion, it publishes the outgoing event `ShipAssembled`
+   (see `AssembledShipRecord`).
+
+Idempotency:
+- `event_uuid` is a unique identifier of the event and should be used by consumers
+  to ensure idempotent processing (deduplication / exactly-once-like behavior).
+- `order_uuid` identifies the business entity (the order) being processed.
+
+Notes:
+- `payment_method` is a string representation of the payment method (value from
+  your PaymentMethod enum/domain model).
+- `build_time_sec` is the simulated/actual duration of the assembly process in seconds.
+*/
+
+/*
+PaidOrderRecord represents the incoming Kafka event "OrderPaid".
+
+Fields:
+- event_uuid: Unique event identifier for idempotency.
+- order_uuid: Identifier of the paid order.
+- user_uuid: Identifier of the user who paid for the order.
+- payment_method: Payment method as a string (value from PaymentMethod).
+- transaction_uuid: Identifier of the payment transaction produced by the payment step.
+*/
+message PaidOrderRecord {
+  string event_uuid = 1;
+  string order_uuid = 2;
+  string user_uuid = 3;
+  string payment_method = 4;
+  string transaction_uuid = 5;
+}
+
+/*
+AssembledShipRecord represents the outgoing Kafka event "ShipAssembled".
+
+Fields:
+- event_uuid: Unique event identifier for idempotency.
+- order_uuid: Identifier of the assembled order.
+- user_uuid: Identifier of the user who owns the order.
+- build_time_sec: Time spent assembling the ship, in seconds.
+*/
+message AssembledShipRecord {
+  string event_uuid = 1;
+  string order_uuid = 2;
+  string user_uuid = 3;
+  int64 build_time_sec = 4;
+}

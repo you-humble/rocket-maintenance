@@ -2,8 +2,6 @@
 /bin
 /build
 /server
-/coverage
-/node_modules
 
 # Игнорируем кэш и модули, если они есть локально
 /pkg
@@ -28,3 +26,6 @@ Thumbs.db
 
 # Игнорируем файлы логов
 *.log
+coverage
+node_modules
+.env
