@@ -118,7 +118,7 @@ var _ = BeforeSuite(func() {
 	By("running migrations")
 	err = migrator.Up()
 	Expect(err).NotTo(HaveOccurred())
-	defer fumigrator.Close()
+	defer migrator.Close()
 
 	By("starting kafka container (cp-kafka)")
 	kafkaC, kafkaBrokers, err = runKafka(ctx)

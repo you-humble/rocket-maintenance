@@ -10,7 +10,7 @@ import (
 	"github.com/you-humble/rocket-maintenance/platform/logger"
 )
 
-const assemblyDelay = 5 * time.Second
+const assemblyDelay = 10 * time.Second
 
 type KafkaConverter interface {
 	PaidOrderToModel([]byte) (model.PaidOrder, error)
