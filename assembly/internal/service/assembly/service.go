@@ -10,7 +10,7 @@ import (
 	"github.com/you-humble/rocket-maintenance/platform/logger"
 )
 
-const assemblyDelay = 10 * time.Second
+const assemblyDelay = 5 * time.Second
 
 type KafkaConverter interface {
 	PaidOrderToModel([]byte) (model.PaidOrder, error)
@@ -39,7 +39,7 @@ func NewAssemblyService(
 	}
 }
 
-func (s *service) Run(ctx context.Context) error {
+func (s *service) RunOrderPaidConsume(ctx context.Context) error {
 	logger.Info(ctx, "Starting paid order consumer")
 
 	if err := s.consumer.Consume(ctx, s.paidOrderHandler); err != nil {
@@ -102,7 +102,7 @@ func (s *service) sendAssembledShip(
 	}
 
 	if err := s.producer.Send(ctx, event.OrderID[:], payload); err != nil {
-		return fmt.Errorf("producer send: %w", err)
+		return fmt.Errorf("produce to order.assembled topic error: %w", err)
 	}
 	return nil
 }

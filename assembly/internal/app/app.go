@@ -69,7 +69,7 @@ func (a *app) run(ctx context.Context) error {
 			"🚀 assembly server running",
 			logger.String("kafka_broker", config.C().Kafka.Brokers()[0]),
 		)
-		if err := a.di.AssemblyService(ctx).Run(ctx); err != nil {
+		if err := a.di.AssemblyService(ctx).RunOrderPaidConsume(ctx); err != nil {
 			select {
 			case <-ctx.Done():
 			case errCh <- err:

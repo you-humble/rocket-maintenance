@@ -123,6 +123,8 @@ func orderStatusToOAPI(s model.OrderStatus) orderv1.OrderStatus {
 		return orderv1.OrderStatusPENDINGPAYMENT
 	case model.StatusPaid:
 		return orderv1.OrderStatusPAID
+	case model.StatusCompleted:
+		return orderv1.OrderStatusCOMPLETED
 	case model.StatusCancelled:
 		return orderv1.OrderStatusCANCELLED
 	default:

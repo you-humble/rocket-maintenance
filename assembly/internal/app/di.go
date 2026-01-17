@@ -18,7 +18,7 @@ import (
 )
 
 type AssemblyService interface {
-	Run(ctx context.Context) error
+	RunOrderPaidConsume(ctx context.Context) error
 }
 
 type di struct {
@@ -65,6 +65,7 @@ func (d *di) OrderPaidConsumer(ctx context.Context) kafka.Consumer {
 				config.C().Kafka.OrderPaidTopic(),
 			},
 			logger.L(),
+			middleware.Recovery(logger.L()),
 			middleware.Logging(logger.L()),
 		)
 	}

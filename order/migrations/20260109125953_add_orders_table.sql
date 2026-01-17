@@ -16,6 +16,7 @@ BEGIN
         CREATE TYPE order_status AS ENUM (
             'PENDING_PAYMENT',
             'PAID',
+            'COMPLETED',
             'CANCELLED'
         );
     END IF;

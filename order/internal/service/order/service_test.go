@@ -28,6 +28,7 @@ func TestServiceCreate(t *testing.T) {
 		repository *mocks.MockOrderRepository
 		inventory  *mocks.MockInventoryClient
 		payment    *mocks.MockPaymentClient
+		producer   *mocks.MockOrderPaidSender
 	}
 
 	newSvc := func(d deps) *service {
@@ -35,6 +36,7 @@ func TestServiceCreate(t *testing.T) {
 			d.repository,
 			d.inventory,
 			d.payment,
+			d.producer,
 			dbReadTimeout,
 			dbWriteTimeout,
 		)
@@ -246,6 +248,7 @@ func TestServiceCreate(t *testing.T) {
 				repository: mocks.NewMockOrderRepository(t),
 				inventory:  mocks.NewMockInventoryClient(t),
 				payment:    mocks.NewMockPaymentClient(t),
+				producer:   mocks.NewMockOrderPaidSender(t),
 			}
 			if tt.setup != nil {
 				tt.setup(d)
@@ -269,6 +272,7 @@ func TestServicePay(t *testing.T) {
 		repository *mocks.MockOrderRepository
 		inventory  *mocks.MockInventoryClient
 		payment    *mocks.MockPaymentClient
+		producer   *mocks.MockOrderPaidSender
 	}
 
 	newSvc := func(d deps) *service {
@@ -276,6 +280,7 @@ func TestServicePay(t *testing.T) {
 			d.repository,
 			d.inventory,
 			d.payment,
+			d.producer,
 			dbReadTimeout,
 			dbWriteTimeout,
 		)
@@ -406,7 +411,6 @@ func TestServicePay(t *testing.T) {
 
 				d.payment.
 					On("PayOrder", mock.Anything, mock.MatchedBy(func(p model.PayOrderParams) bool {
-						// Service must set UserID from the loaded order.
 						return p.ID == ordID && p.UserID == userID && p.PaymentMethod == model.PaymentMethodCard
 					})).
 					Return("", errors.New("payment provider timeout")).
@@ -519,6 +523,11 @@ func TestServicePay(t *testing.T) {
 					On("Update", mock.Anything, mock.AnythingOfType("*model.Order")).
 					Return(nil).
 					Once()
+
+				d.producer.
+					On("SendOrderPaid", mock.Anything, mock.AnythingOfType("model.PaidOrder")).
+					Return(nil).
+					Once()
 			},
 			assert: func(t *testing.T, res *model.PayOrderResult, err error, d deps) {
 				require.NoError(t, err)
@@ -539,6 +548,7 @@ func TestServicePay(t *testing.T) {
 				repository: mocks.NewMockOrderRepository(t),
 				inventory:  mocks.NewMockInventoryClient(t),
 				payment:    mocks.NewMockPaymentClient(t),
+				producer:   mocks.NewMockOrderPaidSender(t),
 			}
 			if tt.setup != nil {
 				tt.setup(d)
@@ -555,13 +565,14 @@ func TestServicePay(t *testing.T) {
 	}
 }
 
-func TestService_OrderByID(t *testing.T) {
+func TestServiceOrderByID(t *testing.T) {
 	t.Parallel()
 
 	type deps struct {
 		repository *mocks.MockOrderRepository
 		inventory  *mocks.MockInventoryClient
 		payment    *mocks.MockPaymentClient
+		producer   *mocks.MockOrderPaidSender
 	}
 
 	newSvc := func(d deps) *service {
@@ -569,6 +580,7 @@ func TestService_OrderByID(t *testing.T) {
 			d.repository,
 			d.inventory,
 			d.payment,
+			d.producer,
 			dbReadTimeout,
 			dbWriteTimeout,
 		)
@@ -646,6 +658,7 @@ func TestService_OrderByID(t *testing.T) {
 				repository: mocks.NewMockOrderRepository(t),
 				inventory:  mocks.NewMockInventoryClient(t),
 				payment:    mocks.NewMockPaymentClient(t),
+				producer:   mocks.NewMockOrderPaidSender(t),
 			}
 
 			if tt.setup != nil {
@@ -670,6 +683,7 @@ func TestServiceCancel(t *testing.T) {
 		repository *mocks.MockOrderRepository
 		inventory  *mocks.MockInventoryClient
 		payment    *mocks.MockPaymentClient
+		producer   *mocks.MockOrderPaidSender
 	}
 
 	newSvc := func(d deps) *service {
@@ -677,6 +691,7 @@ func TestServiceCancel(t *testing.T) {
 			d.repository,
 			d.inventory,
 			d.payment,
+			d.producer,
 			dbReadTimeout,
 			dbWriteTimeout,
 		)
@@ -808,6 +823,7 @@ func TestServiceCancel(t *testing.T) {
 				repository: mocks.NewMockOrderRepository(t),
 				inventory:  mocks.NewMockInventoryClient(t),
 				payment:    mocks.NewMockPaymentClient(t),
+				producer:   mocks.NewMockOrderPaidSender(t),
 			}
 			if tt.setup != nil {
 				tt.setup(d)
@@ -819,6 +835,96 @@ func TestServiceCancel(t *testing.T) {
 			defer cancel()
 
 			err := svc.Cancel(ctx, tt.ordID)
+			tt.assert(t, err, d)
+		})
+	}
+}
+
+func TestServiceComplete(t *testing.T) {
+	t.Parallel()
+
+	type deps struct {
+		repository *mocks.MockOrderRepository
+		inventory  *mocks.MockInventoryClient
+		payment    *mocks.MockPaymentClient
+		producer   *mocks.MockOrderPaidSender
+	}
+
+	newSvc := func(d deps) *service {
+		return NewOrderService(
+			d.repository,
+			d.inventory,
+			d.payment,
+			d.producer,
+			dbReadTimeout,
+			dbWriteTimeout,
+		)
+	}
+
+	type testCase struct {
+		name   string
+		ordID  uuid.UUID
+		setup  func(d deps)
+		assert func(t *testing.T, err error, d deps)
+	}
+
+	ordID := uuid.New()
+
+	tests := []testCase{
+		{
+			name:  "repository error: Update fails",
+			ordID: ordID,
+			setup: func(d deps) {
+				d.repository.
+					On("Update", mock.Anything, mock.MatchedBy(func(o *model.Order) bool {
+						return o.ID == ordID && o.Status == model.StatusCompleted
+					})).
+					Return(errors.New("db update failed")).
+					Once()
+			},
+			assert: func(t *testing.T, err error, d deps) {
+				require.Error(t, err)
+				d.repository.AssertExpectations(t)
+			},
+		},
+		{
+			name:  "success: paid -> completed",
+			ordID: ordID,
+			setup: func(d deps) {
+				d.repository.
+					On("Update", mock.Anything, mock.MatchedBy(func(o *model.Order) bool {
+						return o.ID == ordID && o.Status == model.StatusCompleted
+					})).
+					Return(nil).
+					Once()
+			},
+			assert: func(t *testing.T, err error, d deps) {
+				require.NoError(t, err)
+				d.repository.AssertExpectations(t)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			d := deps{
+				repository: mocks.NewMockOrderRepository(t),
+				inventory:  mocks.NewMockInventoryClient(t),
+				payment:    mocks.NewMockPaymentClient(t),
+				producer:   mocks.NewMockOrderPaidSender(t),
+			}
+			if tt.setup != nil {
+				tt.setup(d)
+			}
+
+			svc := newSvc(d)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+
+			err := svc.Complete(ctx, tt.ordID)
 			tt.assert(t, err, d)
 		})
 	}

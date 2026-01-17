@@ -3,4 +3,5 @@ description: Status of the spacecraft build order.
 enum:
   - PENDING_PAYMENT
   - PAID
+  - COMPLETED
   - CANCELLED

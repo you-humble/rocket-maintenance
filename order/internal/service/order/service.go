@@ -25,10 +25,15 @@ type PaymentClient interface {
 	PayOrder(ctx context.Context, params model.PayOrderParams) (string, error)
 }
 
+type OrderPaidSender interface {
+	SendOrderPaid(ctx context.Context, event model.PaidOrder) error
+}
+
 type service struct {
 	repo           OrderRepository
 	inventory      InventoryClient
 	payment        PaymentClient
+	producer       OrderPaidSender
 	readDBTimeout  time.Duration
 	writeDBTimeout time.Duration
 }
@@ -37,6 +42,7 @@ func NewOrderService(
 	repository OrderRepository,
 	inventory InventoryClient,
 	payment PaymentClient,
+	producer OrderPaidSender,
 	readDBTimeout time.Duration,
 	writeDBTimeout time.Duration,
 ) *service {
@@ -44,6 +50,7 @@ func NewOrderService(
 		repo:           repository,
 		inventory:      inventory,
 		payment:        payment,
+		producer:       producer,
 		readDBTimeout:  readDBTimeout,
 		writeDBTimeout: writeDBTimeout,
 	}
@@ -183,6 +190,17 @@ func (svc *service) Pay(
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
+	if err := svc.producer.SendOrderPaid(ctx, model.PaidOrder{
+		EventID:       uuid.New(),
+		OrderID:       ord.ID,
+		UserID:        ord.UserID,
+		PaymentMethod: *ord.PaymentMethod,
+		TransactionID: *ord.TransactionID,
+	}); err != nil {
+		log.Error(ctx, "send paid order", logger.ErrorF(err))
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
 	return &model.PayOrderResult{TransactionID: transactionID}, nil
 }
 
@@ -235,9 +253,33 @@ func (svc *service) Cancel(ctx context.Context, ordID uuid.UUID) error {
 	case model.StatusPaid:
 		log.Error(ctx, "order conflict: already paid")
 		return fmt.Errorf("%s: %w", op, model.ErrOrderConflict)
+	case model.StatusCompleted:
+		log.Error(ctx, "order conflict: already comleted")
+		return fmt.Errorf("%s: %w", op, model.ErrOrderConflict)
 	default:
 		log.Error(ctx, "wrong order status", logger.String("status", string(ord.Status)))
 		return fmt.Errorf("%s: %w", op, model.ErrUnknownStatus)
 	}
+
+	return nil
+}
+
+func (svc *service) Complete(ctx context.Context, ordID uuid.UUID) error {
+	const op string = "order.service.Complete"
+	log := logger.With(
+		logger.String("order_id", ordID.String()),
+	)
+
+	wdbCtx, wdbCancel := context.WithTimeout(ctx, svc.writeDBTimeout)
+	defer wdbCancel()
+
+	if err := svc.repo.Update(wdbCtx, &model.Order{
+		ID:     ordID,
+		Status: model.StatusCompleted,
+	}); err != nil {
+		log.Error(ctx, "repository update order", logger.ErrorF(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
 	return nil
 }
