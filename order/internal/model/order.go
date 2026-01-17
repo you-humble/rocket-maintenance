@@ -1,6 +1,10 @@
 package model
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type (
 	PaymentMethod string
@@ -18,6 +22,7 @@ const (
 const (
 	StatusPendingPayment OrderStatus = "PENDING_PAYMENT"
 	StatusPaid           OrderStatus = "PAID"
+	StatusCompleted      OrderStatus = "COMPLETED"
 	StatusCancelled      OrderStatus = "CANCELLED"
 )
 
@@ -55,4 +60,19 @@ type PayOrderParams struct {
 
 type PayOrderResult struct {
 	TransactionID uuid.UUID
+}
+
+type PaidOrder struct {
+	EventID       uuid.UUID
+	OrderID       uuid.UUID
+	UserID        uuid.UUID
+	PaymentMethod PaymentMethod
+	TransactionID uuid.UUID
+}
+
+type AssembledShip struct {
+	EventID   uuid.UUID
+	OrderID   uuid.UUID
+	UserID    uuid.UUID
+	BuildTime time.Duration
 }

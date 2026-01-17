@@ -146,6 +146,8 @@ func (s OrderStatus) Validate() error {
 		return nil
 	case "PAID":
 		return nil
+	case "COMPLETED":
+		return nil
 	case "CANCELLED":
 		return nil
 	default:

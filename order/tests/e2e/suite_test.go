@@ -4,23 +4,46 @@ package e2e
 
 import (
 	"context"
+	"errors"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	tc "github.com/testcontainers/testcontainers-go"
+	kafkaTc "github.com/testcontainers/testcontainers-go/modules/kafka"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/you-humble/rocket-maintenance/order/internal/app"
+	"github.com/you-humble/rocket-maintenance/order/internal/converter"
 	"github.com/you-humble/rocket-maintenance/order/internal/model"
 	repository "github.com/you-humble/rocket-maintenance/order/internal/repository/order"
+	ordconsumer "github.com/you-humble/rocket-maintenance/order/internal/service/consumer/order"
 	service "github.com/you-humble/rocket-maintenance/order/internal/service/order"
+	ordproducer "github.com/you-humble/rocket-maintenance/order/internal/service/producer/order"
 	"github.com/you-humble/rocket-maintenance/platform/db/migrator"
+	"github.com/you-humble/rocket-maintenance/platform/kafka"
+	"github.com/you-humble/rocket-maintenance/platform/kafka/consumer"
+	"github.com/you-humble/rocket-maintenance/platform/kafka/middleware"
+	"github.com/you-humble/rocket-maintenance/platform/kafka/producer"
+	"github.com/you-humble/rocket-maintenance/platform/logger"
+	assemblypbv1 "github.com/you-humble/rocket-maintenance/shared/pkg/proto/assembly/v1"
 )
+
+// ```bash
+// # Очистка кеша тестов
+// go clean -testcache
+
+// # Очистка Docker ресурсов
+// docker system prune -f
+// ```
 
 const (
 	pgImage = "postgres:17.0-alpine3.20"
@@ -29,17 +52,27 @@ const (
 	pgPass       = "12CXZ43_U_w"
 	pgDB         = "order-db"
 	migrationDir = "../../migrations"
+
+	kafkaImage = "confluentinc/cp-kafka:7.6.1"
+
+	topicPaid       = "order.paid"
+	topicAssembled  = "order.assembled"
+	consumerGroupID = "order-group-order-assembled"
 )
 
 var (
 	ctx context.Context
 
-	pgC  *postgres.PostgresContainer
-	pool *pgxpool.Pool
-
-	repo service.OrderRepository
-
+	pgC   *postgres.PostgresContainer
+	pool  *pgxpool.Pool
 	dbURL string
+
+	kafkaC       tc.Container
+	kafkaBrokers []string
+
+	repo        service.OrderRepository
+	ordSvc      app.OrderService
+	ordConsumer app.OrderConsumer
 )
 
 func TestIntegration(t *testing.T) {
@@ -52,7 +85,7 @@ var _ = BeforeSuite(func() {
 
 	By("starting postgres container")
 	var err error
-
+	logger.SetNopLogger()
 	pgC, err = postgres.Run(ctx,
 		pgImage,
 		postgres.WithDatabase(pgDB),
@@ -83,11 +116,70 @@ var _ = BeforeSuite(func() {
 	)
 
 	By("running migrations")
-	migrator.Up()
+	err = migrator.Up()
+	Expect(err).NotTo(HaveOccurred())
 	defer migrator.Close()
+
+	By("starting kafka container (cp-kafka)")
+	kafkaC, kafkaBrokers, err = runKafka(ctx)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("setting env for app config (Kafka brokers/topics/group)")
+	Expect(os.Setenv("KAFKA_BROKERS", kafkaBrokers[0])).To(Succeed())
+	Expect(os.Setenv("ORDER_ASSEMBLED_CONSUMER_GROUP_ID", "order-service-it")).To(Succeed())
+	Expect(os.Setenv("ORDER_PAID_TOPIC_NAME", topicPaid)).To(Succeed())
+	Expect(os.Setenv("ORDER_ASSEMBLED_TOPIC_NAME", topicAssembled)).To(Succeed())
+
+	By("creating kafka topics")
+	Expect(createTopics(ctx, kafkaBrokers, topicPaid, topicAssembled)).To(Succeed())
 
 	By("creating repository")
 	repo = repository.NewOrderRepository(pool)
+
+	orderPaidProducerConfig := sarama.NewConfig()
+	orderPaidProducerConfig.Version = sarama.V4_0_0_0
+	orderPaidProducerConfig.Producer.Return.Successes = true
+
+	p, err := sarama.NewSyncProducer(kafkaBrokers, orderPaidProducerConfig)
+	Expect(err).NotTo(HaveOccurred())
+
+	opProducer := producer.NewProducer(p, topicPaid, logger.L())
+	conv := converter.NewKafkaCoverter()
+
+	producer := ordproducer.NewOrderProducer(opProducer, conv)
+
+	paymentClient := newStubPaymentClient()
+	ordSvc = service.NewOrderService(repo, nil, paymentClient, producer, 2*time.Second, 2*time.Second)
+
+	orderAssembledConsumerConfig := sarama.NewConfig()
+	orderAssembledConsumerConfig.Version = sarama.V4_0_0_0
+	orderAssembledConsumerConfig.Consumer.Group.Rebalance.GroupStrategies = []sarama.BalanceStrategy{sarama.NewBalanceStrategyRoundRobin()}
+	orderAssembledConsumerConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
+
+	consumerGr, err := sarama.NewConsumerGroup(
+		kafkaBrokers,
+		consumerGroupID,
+		orderAssembledConsumerConfig,
+	)
+	Expect(err).NotTo(HaveOccurred())
+
+	oaConsumer := consumer.NewConsumer(
+		consumerGr,
+		[]string{
+			topicAssembled,
+		},
+		logger.L(),
+		middleware.Recovery(logger.L()),
+		middleware.Logging(logger.L()),
+	)
+
+	ordConsumer = ordconsumer.NewOrderConsumer(oaConsumer, conv, ordSvc)
+	By("starting order assembled consumer in background")
+	consumerErrCh := make(chan error)
+	go func() {
+		consumerErrCh <- ordConsumer.RunShipAssembledConsume(ctx)
+	}()
+	Consistently(consumerErrCh, 2*time.Second).ShouldNot(Receive())
 })
 
 var _ = AfterSuite(func() {
@@ -97,6 +189,7 @@ var _ = AfterSuite(func() {
 	if pgC != nil {
 		_ = pgC.Terminate(ctx)
 	}
+	mustTerminate(ctx, kafkaC)
 })
 
 var _ = BeforeEach(func() {
@@ -244,5 +337,190 @@ var _ = Describe("Order repository", func() {
 			})
 			Expect(err).To(Equal(model.ErrOrderNotFound))
 		})
+
+		It("completes order after assembled event is consumed", func() {
+			userID := uuid.New()
+			partID := uuid.New()
+
+			By("creating order")
+			id, err := repo.Create(ctx, &model.Order{
+				UserID:     userID,
+				PartIDs:    []uuid.UUID{partID},
+				TotalPrice: 12345,
+				Status:     model.StatusPendingPayment,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("preparing assembled payload using the same converter as app")
+			btSec := 100 * time.Millisecond
+			pb := &assemblypbv1.AssembledShipRecord{
+				EventUuid:    uuid.NewString(),
+				OrderUuid:    id.String(),
+				UserUuid:     userID.String(),
+				BuildTimeSec: int64(btSec),
+			}
+
+			assembledPayload, err := proto.Marshal(pb)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("simulating assembler service: consumes paid and produces assembled")
+			errCh := make(chan error, 1)
+			go func() {
+				errCh <- simulateAssemblerOnce(
+					ctx,
+					kafkaBrokers,
+					id,
+					assembledPayload,
+				)
+			}()
+
+			By("marking order as PAID and sending paid event")
+			res, err := ordSvc.Pay(ctx, model.PayOrderParams{
+				ID:            id,
+				UserID:        userID,
+				PaymentMethod: model.PaymentMethodCard,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res).NotTo(BeNil())
+			Expect(res.TransactionID).NotTo(Equal(uuid.Nil))
+
+			By("waiting until order becomes COMPLETED in DB")
+			Eventually(func(g Gomega) {
+				got, err := repo.OrderByID(ctx, id)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(got.Status).To(Equal(model.StatusCompleted))
+			}).WithTimeout(15 * time.Second).WithPolling(200 * time.Millisecond).Should(Succeed())
+		})
 	})
 })
+
+func runKafka(ctx context.Context) (tc.Container, []string, error) {
+	c, err := kafkaTc.Run(ctx,
+		kafkaImage,
+		kafkaTc.WithClusterID("Mk3OEYBSD34fcwNTJENDM2Qk"),
+	)
+	if err != nil {
+		return nil, []string{}, err
+	}
+
+	bootstrap, err := c.Brokers(ctx)
+	if err != nil {
+		_ = c.Terminate(ctx)
+		return nil, []string{}, err
+	}
+
+	return c, bootstrap, nil
+}
+
+func mustTerminate(ctx context.Context, c tc.Container) {
+	if c != nil {
+		_ = c.Terminate(ctx)
+	}
+}
+
+func createTopics(_ context.Context, brokers []string, topics ...string) error {
+	cfg := sarama.NewConfig()
+	cfg.Version = sarama.V4_0_0_0
+	cfg.Producer.Return.Successes = true
+	cfg.Admin.Timeout = 10 * time.Second
+
+	admin, err := sarama.NewClusterAdmin(brokers, cfg)
+	if err != nil {
+		return err
+	}
+	defer admin.Close()
+
+	for _, t := range topics {
+		err := admin.CreateTopic(t, &sarama.TopicDetail{
+			NumPartitions:     1,
+			ReplicationFactor: 1,
+		}, false)
+		if err != nil && !errors.Is(err, sarama.ErrTopicAlreadyExists) {
+			return err
+		}
+	}
+	return nil
+}
+
+func simulateAssemblerOnce(
+	ctx context.Context,
+	brokers []string,
+	orderID uuid.UUID,
+	assembledPayload []byte,
+) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	cfg := sarama.NewConfig()
+	cfg.Version = sarama.V4_0_0_0
+	cfg.Consumer.Group.Rebalance.GroupStrategies = []sarama.BalanceStrategy{sarama.NewBalanceStrategyRoundRobin()}
+	cfg.Consumer.Offsets.Initial = sarama.OffsetOldest
+	cfg.Consumer.Return.Errors = true
+	cfg.Producer.Return.Successes = true
+	cfg.Producer.RequiredAcks = sarama.WaitForAll
+
+	consumerGr, err := sarama.NewConsumerGroup(
+		brokers,
+		consumerGroupID,
+		cfg,
+	)
+	if err != nil {
+		return err
+	}
+	defer consumerGr.Close()
+
+	c := consumer.NewConsumer(
+		consumerGr,
+		[]string{
+			topicPaid,
+		},
+		logger.L(),
+	)
+
+	prod, err := sarama.NewSyncProducer(brokers, cfg)
+	if err != nil {
+		return err
+	}
+	defer prod.Close()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- c.Consume(ctx, func(ctx context.Context, msg kafka.Message) error {
+			if msg.Value == nil {
+				return errors.New("msg is nil")
+			}
+			time.Sleep(100 * time.Millisecond)
+			_, _, err := prod.SendMessage(&sarama.ProducerMessage{
+				Topic: topicAssembled,
+				Key:   sarama.ByteEncoder(orderID[:]),
+				Value: sarama.ByteEncoder(assembledPayload),
+			})
+			if err != nil {
+				return err
+			}
+
+			cancel()
+			return nil
+		})
+	}()
+
+	select {
+	case err := <-errCh:
+		if err != nil &&
+			!errors.Is(err, context.Canceled) &&
+			!errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+type stubPaymentClient struct{}
+
+func newStubPaymentClient() *stubPaymentClient { return &stubPaymentClient{} }
+
+func (c *stubPaymentClient) PayOrder(ctx context.Context, params model.PayOrderParams) (string, error) {
+	return uuid.NewString(), nil
+}

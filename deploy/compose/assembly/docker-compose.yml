@@ -1,0 +1,14 @@
+services:
+  assembly:
+    container_name: assembly
+    build:
+      context: ../../../
+      dockerfile: assembly/cmd/assembly/DockerFile
+    env_file:
+      - .env
+    networks:
+      - microservices-net
+
+networks: 
+  microservices-net:
+    external: true

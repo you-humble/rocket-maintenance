@@ -1,6 +1,10 @@
 package config
 
-import "time"
+import (
+	"time"
+
+	"github.com/IBM/sarama"
+)
 
 type Client interface {
 	Host() string
@@ -24,4 +28,13 @@ type Logger interface {
 type Database interface {
 	MigrationDirectory() string
 	DSN() string
+}
+
+type Kafka interface {
+	Brokers() []string
+	OrderPaidTopic() string
+	OrderAssembledTopic() string
+	ConsumerGroupID() string
+	OrderAssembledConsumerConfig() *sarama.Config
+	OrderPaidProducerConfig() *sarama.Config
 }

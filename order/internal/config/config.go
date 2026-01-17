@@ -18,6 +18,7 @@ type config struct {
 	Payment   Client
 	Logger    Logger
 	Postgres  Database
+	Kafka     Kafka
 }
 
 func Load(path ...string) error {
@@ -54,12 +55,18 @@ func Load(path ...string) error {
 		return fmt.Errorf("%s Postgres: %w", op, err)
 	}
 
+	kafkaCfg, err := envconfig.NewKafkaConfig()
+	if err != nil {
+		return fmt.Errorf("%s Kafka: %w", op, err)
+	}
+
 	cfg = &config{
 		Server:    serverCfg,
 		Inventory: inventoryCfg,
 		Payment:   paymentCfg,
 		Logger:    loggerCfg,
 		Postgres:  postgresCfg,
+		Kafka:     kafkaCfg,
 	}
 
 	return nil

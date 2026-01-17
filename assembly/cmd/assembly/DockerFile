@@ -1,0 +1,36 @@
+FROM golang:1.25.4 AS builder
+
+WORKDIR /src
+
+COPY assembly/go.mod assembly/go.sum ./assembly/
+COPY shared/go.mod shared/go.sum ./shared/
+COPY platform/go.mod platform/go.sum ./platform/
+
+WORKDIR /src/assembly
+RUN go mod download
+
+WORKDIR /src
+COPY assembly ./assembly
+COPY shared ./shared
+COPY platform ./platform
+
+WORKDIR /src/assembly
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" \
+    -o /bin/assembly ./cmd/assembly
+
+FROM alpine:3.21.3 AS runtime
+
+WORKDIR /app
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+COPY --from=builder /bin/assembly /app/assembly
+
+RUN chown -R appuser:appgroup /app
+
+USER appuser
+
+EXPOSE 50051
+
+ENTRYPOINT [ "/app/assembly" ]

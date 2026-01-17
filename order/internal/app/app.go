@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/you-humble/rocket-maintenance/order/internal/config"
 	"github.com/you-humble/rocket-maintenance/order/internal/transport/http/health"
@@ -107,34 +108,37 @@ func (a *app) initServer(ctx context.Context) error {
 func (a *app) run(ctx context.Context) error {
 	defer gracefulShutdown()
 
-	errCh := make(chan error)
+	eg, egCtx := errgroup.WithContext(ctx)
 
-	go func() {
-		defer close(errCh)
-
+	eg.Go(func() error {
 		logger.Info(ctx,
+			"🚀 order consumer running",
+			logger.String("kafka_broker", config.C().Kafka.Brokers()[0]),
+		)
+		if err := a.di.OrderConsumer(ctx).RunShipAssembledConsume(ctx); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	eg.Go(func() error {
+		logger.Info(egCtx,
 			"🚀 inventory server listening",
 			logger.String("address", config.C().Server.Address()),
 		)
 		err := a.server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			select {
-			case <-ctx.Done():
-			case errCh <- err:
-			}
+			return err
 		}
-	}()
 
-	select {
-	case <-ctx.Done():
-		logger.Error(ctx, "server context", logger.ErrorF(ctx.Err()))
-		return ctx.Err()
-	case err, ok := <-errCh:
-		if !ok {
-			return nil
-		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
 		return err
 	}
+	return nil
 }
 
 //nolint:contextcheck

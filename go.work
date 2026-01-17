@@ -1,9 +1,11 @@
 go 1.25.4
 
 use (
+	./assembly
 	./inventory
 	./order
 	./payment
+	./notification
 	./shared
 	./platform
 )
