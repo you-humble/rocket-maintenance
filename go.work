@@ -5,6 +5,7 @@ use (
 	./inventory
 	./order
 	./payment
+	./notification
 	./shared
 	./platform
 )

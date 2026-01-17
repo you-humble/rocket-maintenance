@@ -1,0 +1,14 @@
+services:
+  assembly:
+    container_name: notification
+    build:
+      context: ../../../
+      dockerfile: notification/cmd/notification/DockerFile
+    env_file:
+      - .env
+    networks:
+      - microservices-net
+
+networks: 
+  microservices-net:
+    external: true

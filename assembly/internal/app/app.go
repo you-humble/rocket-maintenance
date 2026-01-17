@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"time"
 
 	"github.com/you-humble/rocket-maintenance/assembly/internal/config"
 	"github.com/you-humble/rocket-maintenance/platform/closer"
@@ -62,13 +63,12 @@ func (a *app) initDI(_ context.Context) error {
 }
 
 func (a *app) run(ctx context.Context) error {
+	defer gracefulShutdown()
+
 	errCh := make(chan error)
 
 	go func() {
-		logger.Info(ctx,
-			"🚀 assembly server running",
-			logger.String("kafka_broker", config.C().Kafka.Brokers()[0]),
-		)
+		logger.Info(ctx, "🚀 assembly server running")
 		if err := a.di.AssemblyService(ctx).RunOrderPaidConsume(ctx); err != nil {
 			select {
 			case <-ctx.Done():
@@ -87,4 +87,21 @@ func (a *app) run(ctx context.Context) error {
 		}
 		return err
 	}
+}
+
+//nolint:contextcheck
+func gracefulShutdown() {
+	ctx, cancel := context.WithTimeout(
+		context.Background(), // do not inherit cancellation from ctx
+		10*time.Second,
+	)
+	defer cancel()
+
+	err := closer.CloseAll(ctx)
+	if err != nil {
+		logger.Error(ctx, "❌ Error during server shutdown", logger.ErrorF(err))
+		logger.Error(ctx, "❌😵‍💫 Server stopped")
+		return
+	}
+	logger.Info(ctx, "✅ Server stopped")
 }
